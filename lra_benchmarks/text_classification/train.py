@@ -52,7 +52,7 @@ flags.DEFINE_string(
 flags.DEFINE_bool(
     'test_only', default=False, help='Run the evaluation on the test data.')
 
-CLASS_MAP = {'imdb_reviews': 2}
+CLASS_MAP = {'imdb_reviews': 2, 'yelp_reviews': 2, 'agnews': 2}
 
 
 def create_model(flax_module, model_kwargs, key, input_shape):
