@@ -19,6 +19,7 @@ kernels to be efficient. "Sliding window" and "global" attention patterns are
 supported, however.
 """
 
+from functools import partial
 from flax import linen as nn
 from jax import lax
 import jax.numpy as jnp
@@ -212,7 +213,7 @@ class LongformerAttention(nn.Module):
         'Memory dimension must be divisible by number of heads.')
     head_dim = qkv_features // num_heads
 
-    dense = nn.DenseGeneral.partial(
+    dense = partial(nn.DenseGeneral,
         axis=-1,
         features=(num_heads, head_dim),
         kernel_init=kernel_init,
@@ -287,4 +288,4 @@ class LongformerAttention(nn.Module):
     return out
 
 
-LongformerSelfAttention = LongformerAttention.partial(inputs_kv=None)
+LongformerSelfAttention = partial(LongformerAttention,inputs_kv=None)

@@ -21,7 +21,7 @@ https://github.com/google-research/google-research/blob/master/performer/fast_at
 
 import abc
 from collections.abc import Iterable  # pylint: disable=g-importing-member
-import functools
+from functools import partial
 from absl import logging
 import gin
 import jax
@@ -213,13 +213,13 @@ def make_fast_softmax_attention(qkv_dim,
       'Fast softmax attention: %s features and orthogonal=%s, renormalize=%s',
       nb_features, ortho_features, renormalize_attention)
   if ortho_features:
-    matrix_creator = functools.partial(
+    matrix_creator = partial(
         GaussianOrthogonalRandomMatrix,
         nb_features,
         qkv_dim,
         scaling=ortho_scaling)
   else:
-    matrix_creator = functools.partial(GaussianUnstructuredRandomMatrix,
+    matrix_creator = partial(GaussianUnstructuredRandomMatrix,
                                        nb_features, qkv_dim)
   if nonnegative_features:
 
@@ -274,10 +274,10 @@ def make_fast_generalized_attention(qkv_dim,
   logging.info('Fast generalized attention.: %s features and renormalize=%s',
                nb_features, renormalize_attention)
   if features_type == 'ortho':
-    matrix_creator = functools.partial(
+    matrix_creator = partial(
         GaussianOrthogonalRandomMatrix, nb_features, qkv_dim, scaling=False)
   elif features_type == 'iid':
-    matrix_creator = functools.partial(GaussianUnstructuredRandomMatrix,
+    matrix_creator = partial(GaussianUnstructuredRandomMatrix,
                                        nb_features, qkv_dim)
   elif features_type == 'deterministic':
     matrix_creator = None

@@ -13,6 +13,7 @@
 # limitations under the License.
 """Attention modules for Reformer model."""
 
+from functools import partial
 from absl import logging
 from flax import linen as nn
 import jax
@@ -319,7 +320,7 @@ class ReformerAttention(nn.Module):
         'Memory dimension must be divisible by number of heads.')
     head_dim = qkv_features // num_heads
 
-    dense = nn.DenseGeneral.partial(
+    dense = partial(nn.DenseGeneral,
         axis=-1,
         features=(num_heads, head_dim),
         kernel_init=kernel_init,
@@ -338,4 +339,4 @@ class ReformerAttention(nn.Module):
     out = out[:, :orig_seqlen, :]
     return out
 
-ReformerSelfAttention = ReformerAttention.partial(inputs_kv=None)
+ReformerSelfAttention = partial(ReformerAttention,inputs_kv=None)

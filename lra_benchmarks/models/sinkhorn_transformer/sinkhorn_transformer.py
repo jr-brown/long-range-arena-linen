@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Sinkhorn Attention Transformer models."""
+from functools import partial
 from flax import linen as nn
 import jax.numpy as jnp
 from lra_benchmarks.models.layers import common_layers
@@ -151,7 +152,7 @@ class SinkhornTransformerEncoder(nn.Module):
 
     # Input Embedding
     if shared_embedding is None:
-      input_embed = nn.Embed.partial(
+      input_embed = partial(nn.Embed,
           num_embeddings=vocab_size,
           features=emb_dim,
           embedding_init=nn.initializers.normal(stddev=1.0))

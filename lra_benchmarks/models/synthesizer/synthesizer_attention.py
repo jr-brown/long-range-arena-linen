@@ -13,6 +13,7 @@
 # limitations under the License.
 """Synthesizer Attention modules."""
 
+from functools import partial
 from collections.abc import Iterable  # pylint: disable=g-importing-member
 
 from absl import logging
@@ -263,7 +264,7 @@ class SynthesizerAttention(nn.Module):
         'Memory dimension must be divisible by number of heads.')
     head_dim = qkv_features // num_heads
 
-    dense = nn.DenseGeneral.partial(
+    dense = partial(nn.DenseGeneral,
         axis=-1,
         features=(num_heads, head_dim),
         kernel_init=kernel_init,
@@ -309,7 +310,7 @@ class SynthesizerAttention(nn.Module):
                                              (inputs_q.shape[0],))
         syn_weights_list.append(rand_syn_weights)
     if 'dense' in synthesizer_mode:
-      dense_syn = nn.DenseGeneral.partial(axis=-1,
+      dense_syn = partial(nn.DenseGeneral,axis=-1,
                                           features=(num_heads, head_dim),
                                           kernel_init=kernel_init,
                                           bias_init=bias_init,
@@ -318,7 +319,7 @@ class SynthesizerAttention(nn.Module):
                                           name='dense_syn',
                                           dtype=dtype)
       # TODO(yitay): Change this to nn.Dense and make sure it works
-      dense_syn_length = nn.linear.DenseGeneral.partial(axis=-1,
+      dense_syn_length = partial(nn.linear.DenseGeneral,axis=-1,
                                                         features=(max_length),
                                                         kernel_init=kernel_init,
                                                         bias_init=bias_init,
@@ -455,4 +456,4 @@ class SynthesizerAttention(nn.Module):
 
 # TODO(flax-dev): Consider refactoring MultiHeadDotProductAttention and moving
 # causal_mask and cache support into this class instead.
-SynthesizerSelfAttention = SynthesizerAttention.partial(inputs_kv=None)
+SynthesizerSelfAttention = partial(SynthesizerAttention,inputs_kv=None)

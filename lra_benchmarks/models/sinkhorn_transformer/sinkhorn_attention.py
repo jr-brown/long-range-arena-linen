@@ -13,6 +13,7 @@
 # limitations under the License.
 """Sinkhorn Attention modules."""
 
+from functools import partial
 from collections.abc import Iterable  # pylint: disable=g-importing-member
 
 from flax import linen as nn
@@ -280,7 +281,7 @@ class SinkhornAttention(nn.Module):
         'Memory dimension must be divisible by number of heads.')
     head_dim = qkv_features // num_heads
 
-    dense = nn.DenseGeneral.partial(
+    dense = partial(nn.DenseGeneral,
         axis=-1,
         features=(num_heads, head_dim),
         kernel_init=kernel_init,
@@ -507,4 +508,4 @@ class SinkhornAttention(nn.Module):
 
     return out
 
-SinkhornSelfAttention = SinkhornAttention.partial(inputs_kv=None)
+SinkhornSelfAttention = partial(SinkhornAttention,inputs_kv=None)

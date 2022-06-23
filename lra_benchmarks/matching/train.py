@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Main script for document matching in dual encoder style with AAN dataset."""
-import functools
+from functools import partial
 import itertools
 import json
 import os
@@ -58,9 +58,9 @@ flags.DEFINE_bool(
 def create_model(flax_module, model_kwargs, key, input1_shape, input2_shape):
   """Creates and initializes the model."""
 
-  @functools.partial(jax.jit, backend='cpu')
+  @partial(jax.jit, backend='cpu')
   def _create_model(key):
-    module = flax_module.partial(**model_kwargs)
+    module = partial(flax_module,**model_kwargs)
     with nn.stochastic(key):
       _, initial_params = module.init_by_shape(key,
                                                [(input1_shape, jnp.float32),
@@ -215,7 +215,7 @@ def main(argv):
       base_learning_rate=learning_rate,
       warmup_steps=config.warmup)
   p_train_step = jax.pmap(
-      functools.partial(train_step, learning_rate_fn=learning_rate_fn),
+      partial(train_step, learning_rate_fn=learning_rate_fn),
       axis_name='batch')
   p_eval_step = jax.pmap(eval_step, axis_name='batch')
   # p_pred_step = jax.pmap(predict_step, axis_name='batch')

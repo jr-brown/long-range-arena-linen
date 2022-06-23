@@ -14,7 +14,7 @@
 
 """Main training script for the image classification task."""
 
-import functools
+from functools import partial
 import itertools
 import json
 import os
@@ -54,9 +54,9 @@ flags.DEFINE_bool(
 def create_model(flax_module, model_kwargs, key, input_shape):
   """Creates and initializes the model."""
 
-  @functools.partial(jax.jit, backend='cpu')
+  @partial(jax.jit, backend='cpu')
   def _create_model(key):
-    module = flax_module.partial(**model_kwargs)
+    module = partial(flax_module,**model_kwargs)
     with nn.stateful() as init_state:
       with nn.stochastic(key):
         _, initial_params = module.init_by_shape(key,
@@ -374,7 +374,7 @@ def main(argv):
       steps_per_cycle=config.get('steps_per_cycle', None),
   )
   p_train_step = jax.pmap(
-      functools.partial(
+      partial(
           train_step,
           learning_rate_fn=learning_rate_fn,
           num_classes=num_classes,
@@ -383,7 +383,7 @@ def main(argv):
       axis_name='batch')
 
   p_eval_step = jax.pmap(
-      functools.partial(
+      partial(
           eval_step, num_classes=num_classes, flatten_input=flatten_input),
       axis_name='batch',
   )

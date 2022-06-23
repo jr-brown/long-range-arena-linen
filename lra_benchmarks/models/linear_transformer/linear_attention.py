@@ -13,6 +13,7 @@
 # limitations under the License.
 """Custom Attention modules for Linear Transformer."""
 
+from functools import partial
 from flax import linen as nn
 import jax.numpy as jnp
 
@@ -153,7 +154,7 @@ class LinearAttention(nn.Module):
         'Memory dimension must be divisible by number of heads.')
     head_dim = qkv_features // num_heads
 
-    dense = nn.DenseGeneral.partial(
+    dense = partial(nn.DenseGeneral,
         axis=-1,
         features=(num_heads, head_dim),
         kernel_init=kernel_init,
@@ -195,4 +196,4 @@ class LinearAttention(nn.Module):
     return out
 
 
-LinearSelfAttention = LinearAttention.partial(inputs_kv=None)
+LinearSelfAttention = partial(LinearAttention,inputs_kv=None)

@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Big Bird attention mechanism. See https://arxiv.org/abs/2007.14062."""
+from functools import partial
 from absl import logging
 from flax import linen as nn
 from flax.linen import attention
@@ -506,7 +507,7 @@ class BigBirdAttention(nn.Module):
         'Memory dimension must be divisible by number of heads.')
     head_dim = qkv_features // num_heads
 
-    dense = nn.DenseGeneral.partial(
+    dense = partial(nn.DenseGeneral,
         axis=-1,
         features=(num_heads, head_dim),
         kernel_init=kernel_init,
@@ -656,4 +657,4 @@ class BigBirdAttention(nn.Module):
     return out
 
 
-BigBirdSelfAttention = BigBirdAttention.partial(inputs_kv=None)
+BigBirdSelfAttention = partial(BigBirdAttention,inputs_kv=None)

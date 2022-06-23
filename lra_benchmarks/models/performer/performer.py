@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Performer-based language models."""
-import functools
+from functools import partial
 
 from absl import logging
 from flax import linen as nn
@@ -35,7 +35,7 @@ def _make_attention_fn(attention_fn_cls, attention_fn_kwargs=None):
   attention_fn = (
       _ATTENTION_FNS[attention_fn_cls]
       if isinstance(attention_fn_cls, str) else attention_fn_cls)
-  return (attention_fn if attention_fn_kwargs is None else functools.partial(
+  return (attention_fn if attention_fn_kwargs is None else partial(
       attention_fn, **attention_fn_kwargs))
 
 
@@ -180,7 +180,7 @@ class PerformerEncoder(nn.Module):
 
     # Input Embedding
     if shared_embedding is None:
-      input_embed = nn.Embed.partial(
+      input_embed = partial(nn.Embed,
           num_embeddings=vocab_size,
           features=emb_dim,
           embedding_init=nn.initializers.normal(stddev=1.0))

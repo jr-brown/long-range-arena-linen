@@ -13,6 +13,7 @@
 # limitations under the License.
 """Custom Attention core modules for Flax."""
 
+from functools import partial
 from flax import linen as nn
 from flax.linen.attention import dot_product_attention
 from jax import lax
@@ -110,7 +111,7 @@ class LinformerAttention(nn.Module):
         'Memory dimension must be divisible by number of heads.')
     head_dim = qkv_features // num_heads
 
-    dense = nn.DenseGeneral.partial(
+    dense = partial(nn.DenseGeneral,
         axis=-1,
         features=(num_heads, head_dim),
         kernel_init=kernel_init,
@@ -177,4 +178,4 @@ class LinformerAttention(nn.Module):
 
     return out
 
-LinformerSelfAttention = LinformerAttention.partial(inputs_kv=None)
+LinformerSelfAttention = partial(LinformerAttention,inputs_kv=None)

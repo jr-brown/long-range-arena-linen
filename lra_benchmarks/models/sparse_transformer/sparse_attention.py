@@ -17,7 +17,7 @@
 
 Note that all attention patterns are causal.
 """
-import functools
+from functools import partial
 from typing import Iterable
 
 import attr
@@ -163,7 +163,7 @@ class SparseAttention(nn.Module):
         'Memory dimension must be divisible by number of heads.')
     head_dim = qkv_features // num_heads
 
-    dense = nn.DenseGeneral.partial(
+    dense = partial(nn.DenseGeneral,
         axis=-1,
         features=(num_heads, head_dim),
         kernel_init=kernel_init,
@@ -263,4 +263,4 @@ class SparseAttention(nn.Module):
     return out
 
 
-SparseSelfAttention = SparseAttention.partial(inputs_kv=None)
+SparseSelfAttention = partial(SparseAttention,inputs_kv=None)
