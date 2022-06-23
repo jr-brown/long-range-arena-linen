@@ -1,3 +1,7 @@
+# Lonr-Range Arena Linen
+
+This is a fork of google's long-range arena that aims to update it to use the latest version of flax, which now uses linen instead of nn (amongst other things).
+
 ## Long-Range Arena (LRA: pronounced ELRA).
 
 Long-range arena is an effort toward systematic evaluation of efficient

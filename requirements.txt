@@ -1,5 +1,5 @@
-jax>=0.2.4
-flax>=0.2.2
+jax>=0.3.13
+flax>=0.5.1
 ml-collections>=0.1.0
 tensorboard>=2.3.0
 tensorflow>=2.3.1

@@ -19,7 +19,7 @@ kernels to be efficient. "Sliding window" and "global" attention patterns are
 supported, however.
 """
 
-from flax import nn
+from flax import linen as nn
 from jax import lax
 import jax.numpy as jnp
 import numpy as np

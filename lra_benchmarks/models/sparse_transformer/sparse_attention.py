@@ -21,7 +21,7 @@ import functools
 from typing import Iterable
 
 import attr
-from flax import nn
+from flax import linen as nn
 from jax import lax
 import jax.numpy as jnp
 import numpy as np

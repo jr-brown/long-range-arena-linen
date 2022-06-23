@@ -13,8 +13,8 @@
 # limitations under the License.
 """Big Bird attention mechanism. See https://arxiv.org/abs/2007.14062."""
 from absl import logging
-from flax import nn
-from flax.nn import attention
+from flax import linen as nn
+from flax.linen import attention
 import jax
 from jax import lax
 import jax.numpy as jnp

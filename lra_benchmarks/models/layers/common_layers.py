@@ -13,7 +13,7 @@
 # limitations under the License.
 # Lint as: python3
 """Common layers used in models."""
-from flax import nn
+from flax import linen as nn
 from jax import lax
 import jax.numpy as jnp
 import numpy as np
