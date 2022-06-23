@@ -16,17 +16,17 @@
 from flax import linen as nn
 from flax.training import common_utils
 import jax.numpy as jnp
-from lra_benchmarks.models.bigbird import bigbird
-from lra_benchmarks.models.linear_transformer import linear_transformer
-from lra_benchmarks.models.linformer import linformer
-from lra_benchmarks.models.local import local
-from lra_benchmarks.models.longformer import longformer
-from lra_benchmarks.models.performer import performer
-from lra_benchmarks.models.reformer import reformer
-from lra_benchmarks.models.sinkhorn_transformer import sinkhorn_transformer
-from lra_benchmarks.models.sparse_transformer import sparse_attention
-from lra_benchmarks.models.sparse_transformer import sparse_transformer
-from lra_benchmarks.models.synthesizer import synthesizer
+# from lra_benchmarks.models.bigbird import bigbird
+# from lra_benchmarks.models.linear_transformer import linear_transformer
+# from lra_benchmarks.models.linformer import linformer
+# from lra_benchmarks.models.local import local
+# from lra_benchmarks.models.longformer import longformer
+# from lra_benchmarks.models.performer import performer
+# from lra_benchmarks.models.reformer import reformer
+# from lra_benchmarks.models.sinkhorn_transformer import sinkhorn_transformer
+# from lra_benchmarks.models.sparse_transformer import sparse_attention
+# from lra_benchmarks.models.sparse_transformer import sparse_transformer
+# from lra_benchmarks.models.synthesizer import synthesizer
 from lra_benchmarks.models.transformer import transformer
 import numpy as onp
 
@@ -46,40 +46,40 @@ def get_model(model_type, create_model_fn, model_kwargs, *create_model_args):
   if model_type == 'transformer':
     return create_model_fn(transformer.TransformerEncoder, model_kwargs,
                            *create_model_args)
-  elif model_type == 'synthesizer':
-    return create_model_fn(synthesizer.SynthesizerEncoder, model_kwargs,
-                           *create_model_args)
-  elif model_type == 'reformer':
-    return create_model_fn(reformer.ReformerEncoder, model_kwargs,
-                           *create_model_args)
-  elif model_type == 'performer':
-    return create_model_fn(performer.PerformerEncoder, model_kwargs,
-                           *create_model_args)
-  elif model_type == 'linformer':
-    return create_model_fn(linformer.LinformerEncoder, model_kwargs,
-                           *create_model_args)
-  elif model_type == 'local':
-    return create_model_fn(local.LocalTransformerEncoder, model_kwargs,
-                           *create_model_args)
-  elif model_type == 'bigbird':
-    return create_model_fn(bigbird.BigBirdEncoder, model_kwargs,
-                           *create_model_args)
-  elif model_type == 'sinkhorn':
-    return create_model_fn(sinkhorn_transformer.SinkhornTransformerEncoder,
-                           model_kwargs, *create_model_args)
-  elif model_type == 'linear_transformer':
-    return create_model_fn(linear_transformer.LinearTransformerEncoder,
-                           model_kwargs, *create_model_args)
-  elif model_type == 'sparse_transformer':
-    model_kwargs['attention_patterns'] = [
-        sparse_attention.Fixed1Pattern(block_size=50),
-        sparse_attention.Fixed2Pattern(block_size=50, c=10)
-    ]
-    return create_model_fn(sparse_transformer.SparseTransformerEncoder,
-                           model_kwargs, *create_model_args)
-  elif model_type == 'longformer':
-    return create_model_fn(longformer.LongformerEncoder, model_kwargs,
-                           *create_model_args)
+#   elif model_type == 'synthesizer':
+#     return create_model_fn(synthesizer.SynthesizerEncoder, model_kwargs,
+#                            *create_model_args)
+#   elif model_type == 'reformer':
+#     return create_model_fn(reformer.ReformerEncoder, model_kwargs,
+#                            *create_model_args)
+#   elif model_type == 'performer':
+#     return create_model_fn(performer.PerformerEncoder, model_kwargs,
+#                            *create_model_args)
+#   elif model_type == 'linformer':
+#     return create_model_fn(linformer.LinformerEncoder, model_kwargs,
+#                            *create_model_args)
+#   elif model_type == 'local':
+#     return create_model_fn(local.LocalTransformerEncoder, model_kwargs,
+#                            *create_model_args)
+#   elif model_type == 'bigbird':
+#     return create_model_fn(bigbird.BigBirdEncoder, model_kwargs,
+#                            *create_model_args)
+#   elif model_type == 'sinkhorn':
+#     return create_model_fn(sinkhorn_transformer.SinkhornTransformerEncoder,
+#                            model_kwargs, *create_model_args)
+#   elif model_type == 'linear_transformer':
+#     return create_model_fn(linear_transformer.LinearTransformerEncoder,
+#                            model_kwargs, *create_model_args)
+#   elif model_type == 'sparse_transformer':
+#     model_kwargs['attention_patterns'] = [
+#         sparse_attention.Fixed1Pattern(block_size=50),
+#         sparse_attention.Fixed2Pattern(block_size=50, c=10)
+#     ]
+#     return create_model_fn(sparse_transformer.SparseTransformerEncoder,
+#                            model_kwargs, *create_model_args)
+#   elif model_type == 'longformer':
+#     return create_model_fn(longformer.LongformerEncoder, model_kwargs,
+#                            *create_model_args)
   else:
     raise ValueError('Model type not supported')
 

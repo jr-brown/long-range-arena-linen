@@ -28,7 +28,7 @@ Quick key:
 4. N
 
 ## Module.partial inside other modules
-1. N
+1. D
 
 ## Top-level training code patterns
 1. N
