@@ -13,299 +13,289 @@
 # limitations under the License.
 """Transformer model."""
 from functools import partial
-from flax import linen as nn
-import jax.numpy as jnp
 from lra_benchmarks.models.layers import common_layers
+from typing import Any
+
+import flax.linen as nn
+import jax.numpy as jnp
+import jax.nn as jnn
 
 
 class TransformerBlock(nn.Module):
-  """Transformer layer (https://openreview.net/forum?id=H1e5GJBtDr)."""
+    """Transformer layer (https://openreview.net/forum?id=H1e5GJBtDr)."""
 
-  def apply(self,
-            inputs,
-            qkv_dim,
-            mlp_dim,
-            num_heads,
-            dtype=jnp.float32,
-            inputs_segmentation=None,
-            causal_mask=False,
-            padding_mask=None,
-            dropout_rate=0.1,
-            attention_dropout_rate=0.1,
-            deterministic=False,
-            cache=None):
-    """Applies TransformerBlock module.
+    qkv_dim: Any
+    mlp_dim: Any
+    num_heads: Any
+    dtype: Any=jnp.float32
+    causal_mask: Any=False
+    padding_mask: Any=None
+    dropout_rate: Any=0.1
+    attention_dropout_rate: Any=0.1
+    cache: Any=None
+    deterministic: bool=False
 
-    Args:
-      inputs: input data
-      qkv_dim: dimension of the query/key/value
-      mlp_dim: dimension of the mlp on top of attention block
-      num_heads: number of heads
-      dtype: the dtype of the computation (default: float32).
-      inputs_segmentation: input segmentation info for packed examples.
-      causal_mask: bool, mask future or not
-      padding_mask: bool, mask padding tokens
-      dropout_rate: dropout rate
-      attention_dropout_rate: dropout rate for attention weights
-      deterministic: bool, deterministic or not (to apply dropout)
-      cache: flax autoregressive cache for fast decoding.
+    @nn.compact
+    def __call__(self, inputs, inputs_segmentation=None):
+        """Applies TransformerBlock module.
 
-    Returns:
-      output after transformer block.
+        Args:
+            inputs: input data
+            qkv_dim: dimension of the query/key/value
+            mlp_dim: dimension of the mlp on top of attention block
+            num_heads: number of heads
+            dtype: the dtype of the computation (default: float32).
+            inputs_segmentation: input segmentation info for packed examples.
+            causal_mask: bool, mask future or not
+            padding_mask: bool, mask padding tokens
+            dropout_rate: dropout rate
+            attention_dropout_rate: dropout rate for attention weights
+            deterministic: bool, deterministic or not (to apply dropout)
+            cache: flax autoregressive cache for fast decoding.
 
-    """
+        Returns:
+            output after transformer block.
 
-    # Attention block.
-    assert inputs.ndim == 3
-    x = nn.LayerNorm(inputs)
-    x = nn.SelfAttention(
-        x,
-        num_heads=num_heads,
-        dtype=dtype,
-        qkv_features=qkv_dim,
-        attention_axis=(1,),
-        causal_mask=causal_mask,
-        segmentation=inputs_segmentation,
-        padding_mask=padding_mask,
-        kernel_init=nn.initializers.xavier_uniform(),
-        bias_init=nn.initializers.normal(stddev=1e-6),
-        bias=False,
-        broadcast_dropout=False,
-        dropout_rate=attention_dropout_rate,
-        deterministic=deterministic,
-        cache=cache)
-    x = nn.dropout(x, rate=dropout_rate, deterministic=deterministic)
-    x = x + inputs
+        """
 
-    # MLP block.
-    y = nn.LayerNorm(x)
-    y = common_layers.MlpBlock(
-        y,
-        mlp_dim=mlp_dim,
-        dtype=dtype,
-        dropout_rate=dropout_rate,
-        deterministic=deterministic)
+        # Attention block.
+        assert inputs.ndim == 3
+        x = nn.LayerNorm()(inputs)
+        x = nn.SelfAttention(
+                num_heads=self.num_heads,
+                dtype=self.dtype,
+                qkv_features=self.qkv_dim,
+                attention_axis=(1,),
+                causal_mask=self.causal_mask,
+                segmentation=inputs_segmentation,
+                padding_mask=self.padding_mask,
+                kernel_init=jnn.initializers.xavier_uniform(),
+                bias_init=jnn.initializers.normal(stddev=1e-6),
+                bias=False,
+                broadcast_dropout=False,
+                dropout_rate=self.attention_dropout_rate,
+                cache=self.cache)(x, deterministic=self.deterministic)
+        x = nn.Dropout(rate=self.dropout_rate)(x, deterministic=self.deterministic)
+        x = x + inputs
 
-    return x + y
+        # MLP block.
+        y = nn.LayerNorm()(x)
+        y = common_layers.MlpBlock(
+            mlp_dim=self.mlp_dim, dtype=self.dtype, dropout_rate=self.dropout_rate
+        )(y, deterministic=self.deterministic)
+
+        return x + y
 
 
 class TransformerEncoder(nn.Module):
-  """Transformer Model Encoder."""
+    """Transformer Model Encoder."""
 
-  def apply(self,
-            inputs,
-            vocab_size,
-            inputs_positions=None,
-            inputs_segmentation=None,
-            shared_embedding=None,
-            use_bfloat16=False,
-            emb_dim=512,
-            num_heads=8,
-            dtype=jnp.float32,
-            num_layers=6,
-            qkv_dim=512,
-            mlp_dim=2048,
-            max_len=512,
-            train=True,
-            dropout_rate=0.1,
-            attention_dropout_rate=0.1,
-            learn_pos_emb=False,
-            classifier=False,
-            classifier_pool='CLS',
-            num_classes=10,
-            tied_weights=False):
-    """Applies Transformer model on the inputs.
+    vocab_size: Any
+    shared_embedding: Any=None
+    use_bfloat16: Any=False
+    emb_dim: Any=512
+    num_heads: Any=8
+    dtype: Any=jnp.float32
+    num_layers: Any=6
+    qkv_dim: Any=512
+    mlp_dim: Any=2048
+    max_len: Any=512
+    dropout_rate: Any=0.1
+    attention_dropout_rate: Any=0.1
+    learn_pos_emb: Any=False
+    classifier: Any=False
+    classifier_pool: Any='CLS'
+    num_classes: Any=10
+    tied_weights: Any=False
 
-    Args:
-      inputs: input data
-      vocab_size: size of the vocabulary
-      inputs_positions: input subsequence positions for packed examples.
-      inputs_segmentation: input segmentation info for packed examples.
-      shared_embedding: a shared embedding layer to use.
-      use_bfloat16: bool: whether use bfloat16.
-      emb_dim: dimension of embedding
-      num_heads: number of heads
-      dtype: the dtype of the computation (default: float32)
-      num_layers: number of layers
-      qkv_dim: dimension of the query/key/value
-      mlp_dim: dimension of the mlp on top of attention block
-      max_len: maximum length.
-      train: if it is training,
-      dropout_rate: dropout rate
-      attention_dropout_rate: dropout rate for attention weights
-      learn_pos_emb: boolean, if learn the positional embedding or use the
-        sinusoidal positional embedding.
-      classifier: boolean, for classification mode (output N-class logits)
-      classifier_pool: str, supports "MEAN", "MAX" pooling.
-      num_classes: int, number of classification classes.
-      tied_weights: bool, to tie weights or not.
+    @nn.compact
+    def __call__(self, inputs, inputs_positions=None, inputs_segmentation=None, train=True):
+        """Applies Transformer model on the inputs.
 
-    Returns:
-      output of a transformer encoder or logits if classifier_mode is true.
-    """
-    assert inputs.ndim == 2  # (batch, len)
+        Args:
+            inputs: input data
+            vocab_size: size of the vocabulary
+            inputs_positions: input subsequence positions for packed examples.
+            inputs_segmentation: input segmentation info for packed examples.
+            shared_embedding: a shared embedding layer to use.
+            use_bfloat16: bool: whether use bfloat16.
+            emb_dim: dimension of embedding
+            num_heads: number of heads
+            dtype: the dtype of the computation (default: float32)
+            num_layers: number of layers
+            qkv_dim: dimension of the query/key/value
+            mlp_dim: dimension of the mlp on top of attention block
+            max_len: maximum length.
+            train: if it is training,
+            dropout_rate: dropout rate
+            attention_dropout_rate: dropout rate for attention weights
+            learn_pos_emb: boolean, if learn the positional embedding or use the
+                sinusoidal positional embedding.
+            classifier: boolean, for classification mode (output N-class logits)
+            classifier_pool: str, supports "MEAN", "MAX" pooling.
+            num_classes: int, number of classification classes.
+            tied_weights: bool, to tie weights or not.
 
-    # Padding Masks
-    src_padding_mask = (inputs > 0)[..., None]
+        Returns:
+            output of a transformer encoder or logits if classifier_mode is true.
+        """
+        assert inputs.ndim == 2  # (batch, len)
 
-    # Input Embedding
-    if shared_embedding is None:
-      input_embed = partial(nn.Embed,
-          num_embeddings=vocab_size,
-          features=emb_dim,
-          embedding_init=nn.initializers.normal(stddev=1.0))
-    else:
-      input_embed = shared_embedding
-    x = inputs.astype('int32')
-    x = input_embed(x)
+        # Padding Masks
+        src_padding_mask = (inputs > 0)[..., None]
 
-    if classifier and classifier_pool == 'CLS':
-      cls = self.param('cls', (1, 1, emb_dim), nn.initializers.zeros)
-      cls = jnp.tile(cls, [x.shape[0], 1, 1])
-      x = jnp.concatenate([cls, x], axis=1)
-      max_len += 1
-      src_padding_mask = jnp.concatenate(
-          [src_padding_mask[:, :1], src_padding_mask], axis=1)
+        # Input Embedding
+        if self.shared_embedding is None:
+            input_embed = partial(nn.Embed,
+                    num_embeddings=self.vocab_size,
+                    features=self.emb_dim,
+                    embedding_init=jnn.initializers.normal(stddev=1.0))
+        else:
+            input_embed = self.shared_embedding
+        x = inputs.astype('int32')
+        x = input_embed(x)
 
-    pe_init = nn.initializers.normal(stddev=0.02) if learn_pos_emb else None
-    x = common_layers.AddPositionEmbs(
-        x,
-        inputs_positions=inputs_positions,
-        posemb_init=pe_init,
-        max_len=max_len,
-        name='posembed_input')
-    x = nn.dropout(x, rate=dropout_rate, deterministic=not train)
+        if self.classifier and self.classifier_pool == 'CLS':
+            cls = self.param('cls', jnn.initializers.zeros, (1, 1, self.emb_dim))
+            cls = jnp.tile(cls, [x.shape[0], 1, 1])
+            x = jnp.concatenate([cls, x], axis=1)
+            self.max_len += 1
+            src_padding_mask = jnp.concatenate(
+                    [src_padding_mask[:, :1], src_padding_mask], axis=1)
 
-    if use_bfloat16:
-      x = x.astype(jnp.bfloat16)
-      dtype = jnp.bfloat16
-    else:
-      dtype = jnp.float32
+        pe_init = jnn.initializers.normal(stddev=0.02) if self.learn_pos_emb else None
+        x = common_layers.AddPositionEmbs(
+                x,
+                inputs_positions=inputs_positions,
+                posemb_init=pe_init,
+                max_len=self.max_len,
+                name='posembed_input')
+        x = nn.Dropout(rate=self.dropout_rate)(x, deterministic=not train)
 
-    # Input Encoder
-    if tied_weights:
-      encoder = TransformerBlock.shared(
-          qkv_dim=qkv_dim,
-          mlp_dim=mlp_dim,
-          num_heads=num_heads,
-          dtype=dtype,
-          padding_mask=src_padding_mask,
-          inputs_segmentation=inputs_segmentation,
-          dropout_rate=dropout_rate,
-          attention_dropout_rate=attention_dropout_rate,
-          deterministic=not train,
-          name='encoderblock')
-      for _ in range(num_layers):
-        x = encoder(x)
-    else:
-      for lyr in range(num_layers):
-        x = TransformerBlock(
-            x,
-            qkv_dim=qkv_dim,
-            mlp_dim=mlp_dim,
-            num_heads=num_heads,
-            dtype=dtype,
-            padding_mask=src_padding_mask,
-            inputs_segmentation=inputs_segmentation,
-            dropout_rate=dropout_rate,
-            attention_dropout_rate=attention_dropout_rate,
-            deterministic=not train,
-            name=f'encoderblock_{lyr}')
+        if self.use_bfloat16:
+            x = x.astype(jnp.bfloat16)
+            dtype = jnp.bfloat16
+        else:
+            dtype = jnp.float32
 
-    encoded = nn.LayerNorm(x, dtype=dtype, name='encoder_norm')
+        # Input Encoder
+        if self.tied_weights:
+            encoder = TransformerBlock(
+                    qkv_dim=self.qkv_dim,
+                    mlp_dim=self.mlp_dim,
+                    num_heads=self.num_heads,
+                    dtype=dtype,
+                    padding_mask=src_padding_mask,
+                    dropout_rate=self.dropout_rate,
+                    attention_dropout_rate=self.attention_dropout_rate,
+                    deterministic=not train,
+                    name='encoderblock')
+            for _ in range(self.num_layers):
+                x = encoder(x, inputs_segmentation=inputs_segmentation)
+        else:
+            for lyr in range(self.num_layers):
+                x = TransformerBlock(
+                        qkv_dim=self.qkv_dim,
+                        mlp_dim=self.mlp_dim,
+                        num_heads=self.num_heads,
+                        dtype=dtype,
+                        padding_mask=src_padding_mask,
+                        dropout_rate=self.dropout_rate,
+                        attention_dropout_rate=self.attention_dropout_rate,
+                        deterministic=not train,
+                        name=f'encoderblock_{lyr}')(x, inputs_segmentation=inputs_segmentation)
 
-    if classifier:
-      encoded = common_layers.classifier_head(
-          encoded, num_classes, mlp_dim, pooling_mode=classifier_pool)
-    return encoded
+        encoded = nn.LayerNorm(dtype=dtype, name='encoder_norm')(x)
+
+        if self.classifier:
+            encoded = common_layers.classifier_head(
+                    encoded, self.num_classes, self.mlp_dim, pooling_mode=self.classifier_pool)
+        return encoded
 
 
 class TransformerDualEncoder(nn.Module):
-  """Transformer Model for Matching (dual encoding) tasks."""
+    """Transformer Model for Matching (dual encoding) tasks."""
 
-  def apply(self,
-            inputs1,
-            inputs2,
-            vocab_size=None,
-            inputs1_positions=None,
-            inputs2_positions=None,
-            inputs1_segmentation=None,
-            inputs2_segmentation=None,
-            use_bfloat16=False,
-            emb_dim=512,
-            num_heads=8,
-            num_layers=6,
-            qkv_dim=512,
-            mlp_dim=2048,
-            max_len=2048,
-            train=False,
-            dropout_rate=0.1,
-            attention_dropout_rate=0.1,
-            classifier=True,
-            classifier_pool='CLS',
-            num_classes=2,
-            interaction=None):
-    """Applies Transformer model on text similarity.
+    vocab_size: Any=None
+    use_bfloat16: Any=False
+    emb_dim: Any=512
+    num_heads: Any=8
+    num_layers: Any=6
+    qkv_dim: Any=512
+    mlp_dim: Any=2048
+    max_len: Any=2048
+    train: Any=False
+    dropout_rate: Any=0.1
+    attention_dropout_rate: Any=0.1
+    classifier: Any=True
+    classifier_pool: Any='CLS'
+    num_classes: Any=2
+    interaction: Any=None
 
-    A deliberate choice to distinguish this from NLI because
-    we may want to do different things to the model later. Dual Encoding
-    mode enforces that we do not do cross attention between pairs.
+    @nn.compact
+    def __call__(self, inputs1, inputs2, inputs1_positions=None, inputs2_positions=None,
+                 inputs1_segmentation=None, inputs2_segmentation=None):
+        """Applies Transformer model on text similarity.
 
-    Args:
-      inputs1: input data.
-      inputs2: target data.
-      vocab_size: size of the input vocabulary.
-      inputs1_positions: input subsequence positions for packed examples.
-      inputs2_positions: target subsequence positions for packed examples.
-      inputs1_segmentation: input segmentation info for packed examples.
-      inputs2_segmentation: target segmentation info for packed examples.
-      use_bfloat16: bool: whether use bfloat16.
-      emb_dim: dimension of embedding.
-      num_heads: number of heads.
-      num_layers: number of layers.
-      qkv_dim: dimension of the query/key/value.
-      mlp_dim: dimension of the mlp on top of attention block.
-      max_len: maximum length.
-      train: whether it is training.
-      dropout_rate: dropout rate.
-      attention_dropout_rate: dropout rate for attention weights.
-      classifier: boolean, to use classifier.
-      classifier_pool: str, supports "MEAN", "MAX" pooling.
-      num_classes: int, number of classification classes.
-      interaction: str, supports "NLI"
+        A deliberate choice to distinguish this from NLI because
+        we may want to do different things to the model later. Dual Encoding
+        mode enforces that we do not do cross attention between pairs.
 
-    Returns:
-      output of a transformer decoder.
-    """
+        Args:
+            inputs1: input data.
+            inputs2: target data.
+            vocab_size: size of the input vocabulary.
+            inputs1_positions: input subsequence positions for packed examples.
+            inputs2_positions: target subsequence positions for packed examples.
+            inputs1_segmentation: input segmentation info for packed examples.
+            inputs2_segmentation: target segmentation info for packed examples.
+            use_bfloat16: bool: whether use bfloat16.
+            emb_dim: dimension of embedding.
+            num_heads: number of heads.
+            num_layers: number of layers.
+            qkv_dim: dimension of the query/key/value.
+            mlp_dim: dimension of the mlp on top of attention block.
+            max_len: maximum length.
+            train: whether it is training.
+            dropout_rate: dropout rate.
+            attention_dropout_rate: dropout rate for attention weights.
+            classifier: boolean, to use classifier.
+            classifier_pool: str, supports "MEAN", "MAX" pooling.
+            num_classes: int, number of classification classes.
+            interaction: str, supports "NLI"
 
-    encoder = TransformerEncoder.shared(
-        vocab_size=vocab_size,
-        use_bfloat16=use_bfloat16,
-        emb_dim=emb_dim,
-        num_heads=num_heads,
-        num_layers=num_layers,
-        qkv_dim=qkv_dim,
-        mlp_dim=mlp_dim,
-        max_len=max_len,
-        train=train,
-        dropout_rate=dropout_rate,
-        attention_dropout_rate=attention_dropout_rate,
-        name='encoder')
-    inputs1_encoded = encoder(
-        inputs=inputs1,
-        inputs_positions=inputs1_positions,
-        inputs_segmentation=inputs1_segmentation)
-    inputs2_encoded = encoder(
-        inputs=inputs2,
-        inputs_positions=inputs2_positions,
-        inputs_segmentation=inputs2_segmentation)
+        Returns:
+            output of a transformer decoder.
+        """
 
-    encoded = common_layers.classifier_head_dual(
-        inputs1_encoded,
-        inputs2_encoded,
-        num_classes,
-        mlp_dim,
-        pooling_mode=classifier_pool,
-        interaction=interaction)
+        encoder = TransformerEncoder(
+                vocab_size=self.vocab_size,
+                use_bfloat16=self.use_bfloat16,
+                emb_dim=self.emb_dim,
+                num_heads=self.num_heads,
+                num_layers=self.num_layers,
+                qkv_dim=self.qkv_dim,
+                mlp_dim=self.mlp_dim,
+                max_len=self.max_len,
+                train=self.train,
+                dropout_rate=self.dropout_rate,
+                attention_dropout_rate=self.attention_dropout_rate,
+                name='encoder')
+        inputs1_encoded = encoder(
+                inputs=inputs1,
+                inputs_positions=inputs1_positions,
+                inputs_segmentation=inputs1_segmentation)
+        inputs2_encoded = encoder(
+                inputs=inputs2,
+                inputs_positions=inputs2_positions,
+                inputs_segmentation=inputs2_segmentation)
 
-    return encoded
+        encoded = common_layers.classifier_head_dual(
+                inputs1_encoded,
+                inputs2_encoded,
+                self.num_classes,
+                self.mlp_dim,
+                pooling_mode=self.classifier_pool,
+                interaction=self.interaction)
+
+        return encoded

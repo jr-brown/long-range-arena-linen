@@ -1,3 +1,4 @@
+#!/bin/zsh
+
 rm -r **/__pycache__/
-rm **/*.pyc
 
