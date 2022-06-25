@@ -61,8 +61,8 @@ def create_train_state(flax_module, model_kwargs, init_rng, input_shape, tx
 
     @partial(jax.jit, backend='cpu')
     def _create_train_state(init_rng):
-        module = partial(flax_module, **model_kwargs)
-        variables = module().init(init_rng, jnp.ones(input_shape))
+        module = flax_module(**model_kwargs)
+        variables = module.init(init_rng, jnp.ones(input_shape), train=False)
         params = variables['params']
         return train_state.TrainState.create(apply_fn=module.apply, params=params, tx=tx)
 
@@ -83,7 +83,7 @@ def compute_metrics(logits, labels, weights):
     return metrics
 
 
-def train_step(train_state, batch, dropout_rng=None):
+def train_step(t_state, batch, dropout_rng=None):
 
     # CONVERSION NEEDED FOR THIS FUNCTION
 
@@ -96,38 +96,30 @@ def train_step(train_state, batch, dropout_rng=None):
     # latter can add some stalls to the devices.
     dropout_rng, new_dropout_rng = random.split(dropout_rng)
 
-    # Unpack train state
-    apply_fn = train_state.apply_fn
-    params = train_state.params
-    tx = train_state.tx
-    opt_state = train_state.opt_state
-
-    def loss_fn(_params):
+    def loss_fn(params):
         """Loss function used for training."""
-        logits = apply_fn({'params': _params}, inputs, train=True, rngs={'dropout': dropout_rng})
+        logits = t_state.apply_fn({'params': params}, inputs, train=True,
+                                  rngs={'dropout': dropout_rng})
         loss, weight_sum = train_utils.compute_weighted_cross_entropy(
                 logits, targets, num_classes=CLASS_MAP[FLAGS.task_name], weights=None)
         mean_loss = loss / weight_sum
         return mean_loss, logits
 
-    (_, logits), grads = jax.value_and_grad(loss_fn, has_aux=True)(params)
+    (_, logits), grads = jax.value_and_grad(loss_fn, has_aux=True)(t_state.params)
     grads = jax.lax.pmean(grads, 'batch')
-    updates, new_opt_state = tx.update(grads, opt_state)
-    new_params = optax.apply_updates(params, updates)
+    new_t_state = t_state.apply_gradients(grads=grads)
 
     metrics = compute_metrics(logits, targets, None)
-    metrics['learning_rate'] = opt_state.hyperparams['learning_rate']
+    metrics['learning_rate'] = t_state.opt_state.hyperparams['learning_rate']
 
     # Pack train state and return
-    new_train_state = train_state.TrainState.create(apply_fn=apply_fn, params=new_params, tx=tx)
-    new_train_state.opt_state = new_opt_state
-    return new_train_state, metrics, new_dropout_rng
+    return new_t_state, metrics, new_dropout_rng
 
 
-def eval_step(train_state, batch):
+def eval_step(t_state, batch):
     eval_keys = ['inputs', 'targets']
     (inputs, targets) = [batch.get(k, None) for k in eval_keys]
-    logits = train_state.apply_fn({'params': train_state.params}, inputs)
+    logits = t_state.apply_fn({'params': t_state.params}, inputs, train=False)
     logging.info(logits)
     return compute_metrics(logits, targets, None)
 
@@ -198,20 +190,25 @@ def main(argv):
                                                        base_learning_rate=learning_rate,
                                                        warmup_steps=config.warmup)
 
-    tx = optax.adamw(lr_fn, b1=0.9, b2=0.98, eps=1e-9, weight_decay=FLAGS.config.weight_decay)
+    @optax.inject_hyperparams
+    def optim(learning_rate):
+        return optax.adamw(learning_rate, b1=0.9, b2=0.98, eps=1e-9,
+                           weight_decay=FLAGS.config.weight_decay)
 
-    train_state = train_utils.get_model(model_type, create_train_state, model_kwargs, init_rng,
+    tx = optim(lr_fn)
+
+    t_state = train_utils.get_model(model_type, create_train_state, model_kwargs, init_rng,
                                         input_shape, tx)
 
     start_step = 0
     if config.restore_checkpoints or FLAGS.test_only:
         # Restore unreplicated optimizer + model state from last checkpoint.
-        train_state = checkpoints.restore_checkpoint(FLAGS.model_dir, train_state)
+        t_state = checkpoints.restore_checkpoint(FLAGS.model_dir, t_state)
         # Grab last step.
-        start_step = train_state.step
+        start_step = t_state.step
 
-    # Replicate train_state, not sure if needed
-    train_state = jax_utils.replicate(train_state)
+    # Replicate t_state, not sure if needed
+    t_state = jax_utils.replicate(t_state)
 
     p_train_step = jax.pmap(train_step, axis_name='batch')
     p_eval_step = jax.pmap(eval_step, axis_name='batch')
@@ -229,7 +226,7 @@ def main(argv):
             eval_batch = common_utils.shard(
                     tree_map(lambda x: x._numpy(), eval_batch))
             # pylint: enable=protected-access
-            metrics = p_eval_step(train_state, eval_batch)
+            metrics = p_eval_step(t_state, eval_batch)
             eval_metrics.append(metrics)
         eval_metrics = common_utils.get_metrics(eval_metrics)
         eval_metrics_sums = tree_map(jnp.sum, eval_metrics)
@@ -256,7 +253,7 @@ def main(argv):
 
     for step, batch in zip(range(start_step, num_train_steps), train_iter):
         batch = common_utils.shard(tree_map(lambda x: x._numpy(), batch))  # pylint: disable=protected-access
-        train_state, metrics, dropout_rngs = p_train_step(train_state, batch,
+        t_state, metrics, dropout_rngs = p_train_step(t_state, batch,
                                                           dropout_rng=dropout_rngs)
         metrics_all.append(metrics)
         logging.info('train in step: %d', step)
@@ -266,7 +263,7 @@ def main(argv):
                 step == num_train_steps - 1):
             if jax.process_index() == 0 and config.save_checkpoints:
                 # Save unreplicated optimizer + model state.
-                checkpoints.save_checkpoint(FLAGS.model_dir, jax_utils.unreplicate(train_state),
+                checkpoints.save_checkpoint(FLAGS.model_dir, jax_utils.unreplicate(t_state),
                                             step)
 
         # Periodic metric handling.

@@ -61,20 +61,29 @@ class TransformerBlock(nn.Module):
         # Attention block.
         assert inputs.ndim == 3
         x = nn.LayerNorm()(inputs)
+
+        # TODO: currently self.padding_mask.shape = (batch_size, length, 1)
+        # Need to make it (batch_size, num_heads, length, length)
+        # Note x.shape = (batch_size, length, features)
+        p_mask = self.padding_mask.reshape(self.padding_mask.shape[:-1])
+        mask = nn.make_attention_mask(p_mask, p_mask)
+
+        if self.causal_mask:
+            mask = nn.combine_masks(mask, nn.make_causal_mask(x))
+
         x = nn.SelfAttention(
                 num_heads=self.num_heads,
                 dtype=self.dtype,
                 qkv_features=self.qkv_dim,
-                attention_axis=(1,),
-                causal_mask=self.causal_mask,
-                segmentation=inputs_segmentation,
-                padding_mask=self.padding_mask,
+                # segmentation=inputs_segmentation,  # TODO: figure out what this was doing
                 kernel_init=jnn.initializers.xavier_uniform(),
                 bias_init=jnn.initializers.normal(stddev=1e-6),
-                bias=False,
+                # bias=False,  # Presumably this was unimportant 0_0
                 broadcast_dropout=False,
                 dropout_rate=self.attention_dropout_rate,
-                cache=self.cache)(x, deterministic=self.deterministic)
+                # cache=self.cache  # And this
+                deterministic=self.deterministic
+        )(x, mask=mask)
         x = nn.Dropout(rate=self.dropout_rate)(x, deterministic=self.deterministic)
         x = x + inputs
 
@@ -107,6 +116,12 @@ class TransformerEncoder(nn.Module):
     classifier_pool: Any='CLS'
     num_classes: Any=10
     tied_weights: Any=False
+
+    def setup(self):
+        if self.classifier and self.classifier_pool == 'CLS':
+            self.actual_max_len = self.max_len + 1
+        else:
+            self.actual_max_len = self.max_len
 
     @nn.compact
     def __call__(self, inputs, inputs_positions=None, inputs_segmentation=None, train=True):
@@ -146,7 +161,7 @@ class TransformerEncoder(nn.Module):
 
         # Input Embedding
         if self.shared_embedding is None:
-            input_embed = partial(nn.Embed,
+            input_embed = nn.Embed(
                     num_embeddings=self.vocab_size,
                     features=self.emb_dim,
                     embedding_init=jnn.initializers.normal(stddev=1.0))
@@ -159,17 +174,15 @@ class TransformerEncoder(nn.Module):
             cls = self.param('cls', jnn.initializers.zeros, (1, 1, self.emb_dim))
             cls = jnp.tile(cls, [x.shape[0], 1, 1])
             x = jnp.concatenate([cls, x], axis=1)
-            self.max_len += 1
             src_padding_mask = jnp.concatenate(
                     [src_padding_mask[:, :1], src_padding_mask], axis=1)
 
         pe_init = jnn.initializers.normal(stddev=0.02) if self.learn_pos_emb else None
         x = common_layers.AddPositionEmbs(
-                x,
                 inputs_positions=inputs_positions,
                 posemb_init=pe_init,
-                max_len=self.max_len,
-                name='posembed_input')
+                max_len=self.actual_max_len,
+                name='posembed_input')(x)
         x = nn.Dropout(rate=self.dropout_rate)(x, deterministic=not train)
 
         if self.use_bfloat16:

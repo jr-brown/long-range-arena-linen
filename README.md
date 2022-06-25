@@ -2,7 +2,7 @@
 
 This is a fork of google's long-range arena that aims to update it to use the latest version of flax, which now uses linen instead of nn (amongst other things). I am primarily using https://flax.readthedocs.io/en/latest/howtos/linen_upgrade_guide.html#defining-simple-modules as a guide.
 
-Status: Not running, conversion in progress
+Status: Runs for transformer, text_classification subset but implementation not verified to be correct
 
 
 ## Long-Range Arena (LRA: pronounced ELRA).
