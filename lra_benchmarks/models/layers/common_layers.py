@@ -14,11 +14,12 @@
 # Lint as: python3
 """Common layers used in models."""
 from typing import Any
-from flax import linen as nn
 from jax import lax
+
+import flax.linen as nn
 import jax.numpy as jnp
-import numpy as np
 import jax.nn as jnn
+import numpy as np
 
 
 class Embed(nn.Module):
@@ -150,21 +151,20 @@ class MlpBlock(nn.Module):
     dtype: Any=jnp.float32
     out_dim: Any=None
     dropout_rate: float=0.1
-    deterministic: bool=False
     kernel_init: Any=jnn.initializers.xavier_uniform()
     bias_init: Any=jnn.initializers.normal(stddev=1e-6)
 
     @nn.compact
-    def __call__(self, inputs):
+    def __call__(self, inputs, deterministic: bool=False):
         """Applies Transformer MlpBlock module."""
         actual_out_dim = inputs.shape[-1] if self.out_dim is None else self.out_dim
         x = nn.Dense(self.mlp_dim, dtype=self.dtype, kernel_init=self.kernel_init,
                      bias_init=self.bias_init)(inputs)
         x = nn.gelu(x)
-        x = nn.Dropout(rate=self.dropout_rate)(x, deterministic=self.deterministic)
+        x = nn.Dropout(rate=self.dropout_rate)(x, deterministic=deterministic)
         output = nn.Dense(actual_out_dim, dtype=self.dtype, kernel_init=self.kernel_init,
                           bias_init=self.bias_init)(x)
-        output = nn.Dropout(rate=self.dropout_rate)(output, deterministic=self.deterministic)
+        output = nn.Dropout(rate=self.dropout_rate)(output, deterministic=deterministic)
         return output
 
 

@@ -23,13 +23,13 @@ from absl import flags
 from absl import logging
 from flax import jax_utils
 from flax import linen as nn
-from flax import optim
 from flax.metrics import tensorboard
-from flax.training import checkpoints
-from flax.training import common_utils
+from flax.training import checkpoints, common_utils, train_state
+import optax
 import jax
 from jax import random
-import jax.nn
+from jax.tree_util import tree_map
+import jax.nn as jnn
 import jax.numpy as jnp
 from lra_benchmarks.text_classification import input_pipeline
 from lra_benchmarks.utils import train_utils
@@ -40,268 +40,267 @@ import tensorflow.compat.v2 as tf
 FLAGS = flags.FLAGS
 
 config_flags.DEFINE_config_file(
-    'config', None, 'Training configuration.', lock_config=True)
+        'config', None, 'Training configuration.', lock_config=True)
 flags.DEFINE_string(
-    'model_dir', default=None, help='Directory to store model data.')
+        'model_dir', default=None, help='Directory to store model data.')
 flags.DEFINE_string(
-    'task_name',
-    default='basic_two_ptrs',
-    help='Directory to store model data.')
+        'task_name',
+        default='basic_two_ptrs',
+        help='Directory to store model data.')
 flags.DEFINE_string(
-    'data_dir', default=None, help='Directory containing datasets.')
+        'data_dir', default=None, help='Directory containing datasets.')
 flags.DEFINE_bool(
-    'test_only', default=False, help='Run the evaluation on the test data.')
+        'test_only', default=False, help='Run the evaluation on the test data.')
 
 CLASS_MAP = {'imdb_reviews': 2, 'yelp_reviews': 2, 'agnews': 2}
 
 
-def create_model(flax_module, model_kwargs, key, input_shape):
-  """Creates and initializes the model."""
+def create_train_state(flax_module, model_kwargs, init_rng, input_shape, tx
+                       ) -> train_state.TrainState:
+    """Creates and initializes the model."""
 
-  @partial(jax.jit, backend='cpu')
-  def _create_model(key):
-    module = partial(flax_module,**model_kwargs)
-    with nn.stochastic(key):
-      _, initial_params = module.init_by_shape(key,
-                                               [(input_shape, jnp.float32)])
-      model = nn.Model(module, initial_params)
-    return model
+    @partial(jax.jit, backend='cpu')
+    def _create_train_state(init_rng):
+        module = partial(flax_module, **model_kwargs)
+        variables = module().init(init_rng, jnp.ones(input_shape))
+        params = variables['params']
+        return train_state.TrainState.create(apply_fn=module.apply, params=params, tx=tx)
 
-  return _create_model(key)
-
-
-def create_optimizer(model, learning_rate, weight_decay):
-  optimizer_def = optim.Adam(
-      learning_rate, beta1=0.9, beta2=0.98, eps=1e-9, weight_decay=weight_decay)
-  optimizer = optimizer_def.create(model)
-  return optimizer
+    return _create_train_state(init_rng)
 
 
 def compute_metrics(logits, labels, weights):
-  """Compute summary metrics."""
-  loss, weight_sum = train_utils.compute_weighted_cross_entropy(
-      logits, labels, num_classes=CLASS_MAP[FLAGS.task_name], weights=None)
-  acc, _ = train_utils.compute_weighted_accuracy(logits, labels, weights)
-  metrics = {
-      'loss': loss,
-      'accuracy': acc,
-      'denominator': weight_sum,
-  }
-  metrics = jax.lax.psum(metrics, 'batch')
-  return metrics
-
-
-def train_step(optimizer, batch, learning_rate_fn, dropout_rng=None):
-  """Perform a single training step."""
-  train_keys = ['inputs', 'targets']
-  (inputs, targets) = [batch.get(k, None) for k in train_keys]
-
-  # We handle PRNG splitting inside the top pmap, rather
-  # than handling it outside in the training loop - doing the
-  # latter can add some stalls to the devices.
-  dropout_rng, new_dropout_rng = random.split(dropout_rng)
-
-  def loss_fn(model):
-    """Loss function used for training."""
-    with nn.stochastic(dropout_rng):
-      logits = model(inputs, train=True)
+    """Compute summary metrics."""
     loss, weight_sum = train_utils.compute_weighted_cross_entropy(
-        logits, targets, num_classes=CLASS_MAP[FLAGS.task_name], weights=None)
-    mean_loss = loss / weight_sum
-    return mean_loss, logits
-
-  step = optimizer.state.step
-  lr = learning_rate_fn(step)
-  grad_fn = jax.value_and_grad(loss_fn, has_aux=True)
-  (_, logits), grad = grad_fn(optimizer.target)
-  grad = jax.lax.pmean(grad, 'batch')
-  new_optimizer = optimizer.apply_gradient(grad, learning_rate=lr)
-  metrics = compute_metrics(logits, targets, None)
-  metrics['learning_rate'] = lr
-
-  return new_optimizer, metrics, new_dropout_rng
+            logits, labels, num_classes=CLASS_MAP[FLAGS.task_name], weights=None)
+    acc, _ = train_utils.compute_weighted_accuracy(logits, labels, weights)
+    metrics = {
+            'loss': loss,
+            'accuracy': acc,
+            'denominator': weight_sum,
+    }
+    metrics = jax.lax.psum(metrics, 'batch')
+    return metrics
 
 
-def eval_step(model, batch):
-  eval_keys = ['inputs', 'targets']
-  (inputs, targets) = [batch.get(k, None) for k in eval_keys]
-  logits = model(inputs, train=False)
-  logging.info(logits)
-  return compute_metrics(logits, targets, None)
+def train_step(train_state, batch, dropout_rng=None):
+
+    # CONVERSION NEEDED FOR THIS FUNCTION
+
+    """Perform a single training step."""
+    train_keys = ['inputs', 'targets']
+    (inputs, targets) = [batch.get(k, None) for k in train_keys]
+
+    # We handle PRNG splitting inside the top pmap, rather
+    # than handling it outside in the training loop - doing the
+    # latter can add some stalls to the devices.
+    dropout_rng, new_dropout_rng = random.split(dropout_rng)
+
+    # Unpack train state
+    apply_fn = train_state.apply_fn
+    params = train_state.params
+    tx = train_state.tx
+    opt_state = train_state.opt_state
+
+    def loss_fn(_params):
+        """Loss function used for training."""
+        logits = apply_fn({'params': _params}, inputs, train=True, rngs={'dropout': dropout_rng})
+        loss, weight_sum = train_utils.compute_weighted_cross_entropy(
+                logits, targets, num_classes=CLASS_MAP[FLAGS.task_name], weights=None)
+        mean_loss = loss / weight_sum
+        return mean_loss, logits
+
+    (_, logits), grads = jax.value_and_grad(loss_fn, has_aux=True)(params)
+    grads = jax.lax.pmean(grads, 'batch')
+    updates, new_opt_state = tx.update(grads, opt_state)
+    new_params = optax.apply_updates(params, updates)
+
+    metrics = compute_metrics(logits, targets, None)
+    metrics['learning_rate'] = opt_state.hyperparams['learning_rate']
+
+    # Pack train state and return
+    new_train_state = train_state.TrainState.create(apply_fn=apply_fn, params=new_params, tx=tx)
+    new_train_state.opt_state = new_opt_state
+    return new_train_state, metrics, new_dropout_rng
+
+
+def eval_step(train_state, batch):
+    eval_keys = ['inputs', 'targets']
+    (inputs, targets) = [batch.get(k, None) for k in eval_keys]
+    logits = train_state.apply_fn({'params': train_state.params}, inputs)
+    logging.info(logits)
+    return compute_metrics(logits, targets, None)
 
 
 def main(argv):
-  if len(argv) > 1:
-    raise app.UsageError('Too many command-line arguments.')
+    if len(argv) > 1:
+        raise app.UsageError('Too many command-line arguments.')
 
-  tf.enable_v2_behavior()
+    tf.enable_v2_behavior()
 
-  config = FLAGS.config
-  logging.info('===========Config Dict============')
-  logging.info(config)
-  batch_size = config.batch_size
-  learning_rate = config.learning_rate
-  num_train_steps = config.num_train_steps
-  num_eval_steps = config.num_eval_steps
-  eval_freq = config.eval_frequency
-  random_seed = config.random_seed
-  model_type = config.model_type
+    config = FLAGS.config
+    logging.info('===========Config Dict============')
+    logging.info(config)
+    batch_size = config.batch_size
+    learning_rate = config.learning_rate
+    num_train_steps = config.num_train_steps
+    num_eval_steps = config.num_eval_steps
+    eval_freq = config.eval_frequency
+    random_seed = config.random_seed
+    model_type = config.model_type
 
-  max_length = config.max_length
+    max_length = config.max_length
 
-  if jax.process_index() == 0:
-    summary_writer = tensorboard.SummaryWriter(
-        os.path.join(FLAGS.model_dir, 'summary'))
+    if jax.process_index() == 0:
+        summary_writer = tensorboard.SummaryWriter(
+                os.path.join(FLAGS.model_dir, 'summary'))
 
-  if batch_size % jax.device_count() > 0:
-    raise ValueError('Batch size must be divisible by the number of devices')
+    if batch_size % jax.device_count() > 0:
+        raise ValueError('Batch size must be divisible by the number of devices')
 
-  train_ds, eval_ds, test_ds, encoder = input_pipeline.get_tc_datasets(
-      n_devices=jax.local_device_count(),
-      task_name=FLAGS.task_name,
-      data_dir=FLAGS.data_dir,
-      batch_size=batch_size,
-      fixed_vocab=None,
-      max_length=max_length)
+    train_ds, eval_ds, test_ds, encoder = input_pipeline.get_tc_datasets(
+            n_devices=jax.local_device_count(),
+            task_name=FLAGS.task_name,
+            data_dir=FLAGS.data_dir,
+            batch_size=batch_size,
+            fixed_vocab=None,
+            max_length=max_length)
 
-  vocab_size = encoder.vocab_size
-  logging.info('Vocab Size: %d', vocab_size)
+    vocab_size = encoder.vocab_size
+    logging.info('Vocab Size: %d', vocab_size)
 
-  train_ds = train_ds.repeat()
+    train_ds = train_ds.repeat()
 
-  train_iter = iter(train_ds)
-  input_shape = (batch_size, max_length)
+    train_iter = iter(train_ds)
+    input_shape = (batch_size, max_length)
 
-  model_kwargs = {
-      'vocab_size': vocab_size,
-      'emb_dim': config.emb_dim,
-      'num_heads': config.num_heads,
-      'num_layers': config.num_layers,
-      'qkv_dim': config.qkv_dim,
-      'mlp_dim': config.mlp_dim,
-      'max_len': max_length,
-      'classifier': True,
-      'num_classes': CLASS_MAP[FLAGS.task_name],
-      'classifier_pool': config.classifier_pool
-  }
+    model_kwargs = {
+            'vocab_size': vocab_size,
+            'emb_dim': config.emb_dim,
+            'num_heads': config.num_heads,
+            'num_layers': config.num_layers,
+            'qkv_dim': config.qkv_dim,
+            'mlp_dim': config.mlp_dim,
+            'max_len': max_length,
+            'classifier': True,
+            'num_classes': CLASS_MAP[FLAGS.task_name],
+            'classifier_pool': config.classifier_pool
+    }
 
-  rng = random.PRNGKey(random_seed)
-  rng = jax.random.fold_in(rng, jax.process_index())
-  rng, init_rng = random.split(rng)
-  # We init the first set of dropout PRNG keys, but update it afterwards inside
-  # the main pmap'd training update for performance.
-  dropout_rngs = random.split(rng, jax.local_device_count())
+    rng = random.PRNGKey(random_seed)
+    rng = jax.random.fold_in(rng, jax.process_index())
+    rng, init_rng = random.split(rng)
+    # We init the first set of dropout PRNG keys, but update it afterwards inside
+    # the main pmap'd training update for performance.
+    dropout_rngs = random.split(rng, jax.local_device_count())
 
-  model = train_utils.get_model(model_type, create_model, model_kwargs,
-                                init_rng, input_shape)
+    lr_fn = train_utils.create_learning_rate_scheduler(factors=config.factors,
+                                                       base_learning_rate=learning_rate,
+                                                       warmup_steps=config.warmup)
 
-  optimizer = create_optimizer(
-      model, learning_rate, weight_decay=FLAGS.config.weight_decay)
-  del model  # Don't keep a copy of the initial model.
-  start_step = 0
-  if config.restore_checkpoints or FLAGS.test_only:
-    # Restore unreplicated optimizer + model state from last checkpoint.
-    optimizer = checkpoints.restore_checkpoint(FLAGS.model_dir, optimizer)
-    # Grab last step.
-    start_step = int(optimizer.state.step)
+    tx = optax.adamw(lr_fn, b1=0.9, b2=0.98, eps=1e-9, weight_decay=FLAGS.config.weight_decay)
 
-  # Replicate optimizer.
-  optimizer = jax_utils.replicate(optimizer)
+    train_state = train_utils.get_model(model_type, create_train_state, model_kwargs, init_rng,
+                                        input_shape, tx)
 
-  learning_rate_fn = train_utils.create_learning_rate_scheduler(
-      factors=config.factors,
-      base_learning_rate=learning_rate,
-      warmup_steps=config.warmup)
-  p_train_step = jax.pmap(
-      partial(train_step, learning_rate_fn=learning_rate_fn),
-      axis_name='batch')
-  p_eval_step = jax.pmap(eval_step, axis_name='batch')
-  # p_pred_step = jax.pmap(predict_step, axis_name='batch')
+    start_step = 0
+    if config.restore_checkpoints or FLAGS.test_only:
+        # Restore unreplicated optimizer + model state from last checkpoint.
+        train_state = checkpoints.restore_checkpoint(FLAGS.model_dir, train_state)
+        # Grab last step.
+        start_step = train_state.step
 
-  def run_eval(eval_ds, num_eval_steps=-1):
-    eval_metrics = []
-    eval_iter = iter(eval_ds)
-    if num_eval_steps == -1:
-      num_iter = itertools.count()
-    else:
-      num_iter = range(num_eval_steps)
-    for _, eval_batch in zip(num_iter, eval_iter):
-      # pylint: disable=protected-access
-      eval_batch = common_utils.shard(
-          jax.tree_map(lambda x: x._numpy(), eval_batch))
-      # pylint: enable=protected-access
-      metrics = p_eval_step(optimizer.target, eval_batch)
-      eval_metrics.append(metrics)
-    eval_metrics = common_utils.get_metrics(eval_metrics)
-    eval_metrics_sums = jax.tree_map(jnp.sum, eval_metrics)
-    eval_denominator = eval_metrics_sums.pop('denominator')
-    eval_summary = jax.tree_map(
-        lambda x: x / eval_denominator,  # pylint: disable=cell-var-from-loop
-        eval_metrics_sums)
-    # Calculate (clipped) perplexity after averaging log-perplexities:
-    eval_summary['perplexity'] = jnp.clip(
-        jnp.exp(eval_summary['loss']), a_max=1.0e4)
-    return eval_summary
+    # Replicate train_state, not sure if needed
+    train_state = jax_utils.replicate(train_state)
 
-  if FLAGS.test_only:
-    with tf.io.gfile.GFile(os.path.join(FLAGS.model_dir, 'results.json'),
-                           'w') as f:
-      test_summary = run_eval(test_ds)
-      json.dump(jax.tree_map(lambda x: x.tolist(), test_summary), f)
-    return
+    p_train_step = jax.pmap(train_step, axis_name='batch')
+    p_eval_step = jax.pmap(eval_step, axis_name='batch')
+    # p_pred_step = jax.pmap(predict_step, axis_name='batch')
 
-  metrics_all = []
-  tick = time.time()
-  logging.info('Starting training')
-  logging.info('====================')
+    def run_eval(eval_ds, num_eval_steps=-1):
+        eval_metrics = []
+        eval_iter = iter(eval_ds)
+        if num_eval_steps == -1:
+            num_iter = itertools.count()
+        else:
+            num_iter = range(num_eval_steps)
+        for _, eval_batch in zip(num_iter, eval_iter):
+            # pylint: disable=protected-access
+            eval_batch = common_utils.shard(
+                    tree_map(lambda x: x._numpy(), eval_batch))
+            # pylint: enable=protected-access
+            metrics = p_eval_step(train_state, eval_batch)
+            eval_metrics.append(metrics)
+        eval_metrics = common_utils.get_metrics(eval_metrics)
+        eval_metrics_sums = tree_map(jnp.sum, eval_metrics)
+        eval_denominator = eval_metrics_sums.pop('denominator')
+        eval_summary = tree_map(
+                lambda x: x / eval_denominator,  # pylint: disable=cell-var-from-loop
+                eval_metrics_sums)
+        # Calculate (clipped) perplexity after averaging log-perplexities:
+        eval_summary['perplexity'] = jnp.clip(
+                jnp.exp(eval_summary['loss']), a_max=1.0e4)
+        return eval_summary
 
-  for step, batch in zip(range(start_step, num_train_steps), train_iter):
-    batch = common_utils.shard(jax.tree_map(lambda x: x._numpy(), batch))  # pylint: disable=protected-access
-    optimizer, metrics, dropout_rngs = p_train_step(
-        optimizer, batch, dropout_rng=dropout_rngs)
-    metrics_all.append(metrics)
-    logging.info('train in step: %d', step)
+    if FLAGS.test_only:
+        with tf.io.gfile.GFile(os.path.join(FLAGS.model_dir, 'results.json'),
+                                                      'w') as f:
+            test_summary = run_eval(test_ds)
+            json.dump(tree_map(lambda x: x.tolist(), test_summary), f)
+        return
 
-    # Save a Checkpoint
-    if ((step % config.checkpoint_freq == 0 and step > 0) or
-        step == num_train_steps - 1):
-      if jax.process_index() == 0 and config.save_checkpoints:
-        # Save unreplicated optimizer + model state.
-        checkpoints.save_checkpoint(FLAGS.model_dir,
-                                    jax_utils.unreplicate(optimizer), step)
+    metrics_all = []
+    tick = time.time()
+    logging.info('Starting training')
+    logging.info('====================')
 
-    # Periodic metric handling.
-    if step % eval_freq == 0 and step > 0:
-      metrics_all = common_utils.get_metrics(metrics_all)
-      lr = metrics_all.pop('learning_rate').mean()
-      metrics_sums = jax.tree_map(jnp.sum, metrics_all)
-      denominator = metrics_sums.pop('denominator')
-      summary = jax.tree_map(lambda x: x / denominator, metrics_sums)  # pylint: disable=cell-var-from-loop
-      summary['learning_rate'] = lr
-      # Calculate (clipped) perplexity after averaging log-perplexities:
-      summary['perplexity'] = jnp.clip(jnp.exp(summary['loss']), a_max=1.0e4)
-      logging.info('train in step: %d, loss: %.4f, acc: %.4f', step,
-                   summary['loss'], summary['accuracy'])
-      if jax.process_index() == 0:
-        tock = time.time()
-        steps_per_sec = eval_freq / (tock - tick)
-        tick = tock
-        summary_writer.scalar('steps per second', steps_per_sec, step)
-        for key, val in summary.items():
-          summary_writer.scalar(f'train_{key}', val, step)
-        summary_writer.flush()
-      # Reset metric accumulation for next evaluation cycle.
-      metrics_all = []
+    for step, batch in zip(range(start_step, num_train_steps), train_iter):
+        batch = common_utils.shard(tree_map(lambda x: x._numpy(), batch))  # pylint: disable=protected-access
+        train_state, metrics, dropout_rngs = p_train_step(train_state, batch,
+                                                          dropout_rng=dropout_rngs)
+        metrics_all.append(metrics)
+        logging.info('train in step: %d', step)
 
-      # Eval Metrics
-      eval_summary = run_eval(eval_ds, num_eval_steps)
-      logging.info('eval in step: %d, loss: %.4f, acc: %.4f', step,
-                   eval_summary['loss'], eval_summary['accuracy'])
-      if jax.process_index() == 0:
-        for key, val in eval_summary.items():
-          summary_writer.scalar(f'eval_{key}', val, step)
-        summary_writer.flush()
+        # Save a Checkpoint
+        if ((step % config.checkpoint_freq == 0 and step > 0) or
+                step == num_train_steps - 1):
+            if jax.process_index() == 0 and config.save_checkpoints:
+                # Save unreplicated optimizer + model state.
+                checkpoints.save_checkpoint(FLAGS.model_dir, jax_utils.unreplicate(train_state),
+                                            step)
+
+        # Periodic metric handling.
+        if step % eval_freq == 0 and step > 0:
+            metrics_all = common_utils.get_metrics(metrics_all)
+            lr = metrics_all.pop('learning_rate').mean()
+            metrics_sums = tree_map(jnp.sum, metrics_all)
+            denominator = metrics_sums.pop('denominator')
+            summary = tree_map(lambda x: x / denominator, metrics_sums)  # pylint: disable=cell-var-from-loop
+            summary['learning_rate'] = lr
+            # Calculate (clipped) perplexity after averaging log-perplexities:
+            summary['perplexity'] = jnp.clip(jnp.exp(summary['loss']), a_max=1.0e4)
+            logging.info('train in step: %d, loss: %.4f, acc: %.4f', step,
+                                      summary['loss'], summary['accuracy'])
+            if jax.process_index() == 0:
+                tock = time.time()
+                steps_per_sec = eval_freq / (tock - tick)
+                tick = tock
+                summary_writer.scalar('steps per second', steps_per_sec, step)
+                for key, val in summary.items():
+                    summary_writer.scalar(f'train_{key}', val, step)
+                summary_writer.flush()
+            # Reset metric accumulation for next evaluation cycle.
+            metrics_all = []
+
+            # Eval Metrics
+            eval_summary = run_eval(eval_ds, num_eval_steps)
+            logging.info('eval in step: %d, loss: %.4f, acc: %.4f', step,
+                                      eval_summary['loss'], eval_summary['accuracy'])
+            if jax.process_index() == 0:
+                for key, val in eval_summary.items():
+                    summary_writer.scalar(f'eval_{key}', val, step)
+                summary_writer.flush()
 
 
 if __name__ == '__main__':
-  app.run(main)
+    app.run(main)
