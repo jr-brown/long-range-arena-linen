@@ -47,6 +47,7 @@ def get_config():
   config.num_layers = 4
   config.qkv_dim = 256
   config.mlp_dim = 1024
+  config.num_data_entries = None
 
   config.trial = 0  # dummy for repeated runs.
   return config

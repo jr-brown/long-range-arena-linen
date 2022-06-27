@@ -1,0 +1,91 @@
+2022-06-27 15:25:12.664211: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcudart.so.11.0'; dlerror: libcudart.so.11.0: cannot open shared object file: No such file or directory
+2022-06-27 15:25:14.116514: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcuda.so.1'; dlerror: libcuda.so.1: cannot open shared object file: No such file or directory
+2022-06-27 15:25:14.116547: W tensorflow/stream_executor/cuda/cuda_driver.cc:269] failed call to cuInit: UNKNOWN ERROR (303)
+I0627 15:25:14.117007 139750277650240 train.py:134] ===========Config Dict============
+I0627 15:25:14.117142 139750277650240 train.py:135] batch_size: 32
+checkpoint_freq: 10000
+classifier_pool: CLS
+emb_dim: 256
+eval_frequency: 100
+factors: constant * linear_warmup * rsqrt_decay
+learning_rate: 0.05
+max_eval_target_length: 200
+max_length: 1000
+max_predict_token_length: 50
+max_target_length: 200
+mlp_dim: 1024
+model_type: transformer
+num_data_entries: null
+num_eval_steps: -1
+num_heads: 4
+num_layers: 4
+num_train_steps: 20000
+prompt: ''
+qkv_dim: 256
+random_seed: 0
+restore_checkpoints: true
+sampling_temperature: 0.6
+sampling_top_k: 20
+save_checkpoints: true
+trial: 0
+warmup: 8000
+weight_decay: 0.1
+
+I0627 15:25:14.120533 139750277650240 xla_bridge.py:330] Unable to initialize backend 'tpu_driver': NOT_FOUND: Unable to find driver in registry given worker: 
+I0627 15:25:14.120693 139750277650240 xla_bridge.py:330] Unable to initialize backend 'gpu': NOT_FOUND: Could not find registered platform with name: "cuda". Available platform names are: Interpreter Host
+I0627 15:25:14.120898 139750277650240 xla_bridge.py:330] Unable to initialize backend 'tpu': INVALID_ARGUMENT: TpuPlatform is not available.
+W0627 15:25:14.120971 139750277650240 xla_bridge.py:335] No GPU/TPU found, falling back to CPU. (Set TF_CPP_MIN_LOG_LEVEL=0 and rerun for more info.)
+I0627 15:25:14.124505 139750277650240 dataset_info.py:491] Load dataset info from ~/tensorflow_datasets/yelp_polarity_reviews/0.2.0
+I0627 15:25:14.126246 139750277650240 dataset_builder.py:383] Reusing dataset yelp_polarity_reviews (~/tensorflow_datasets/yelp_polarity_reviews/0.2.0)
+I0627 15:25:14.126350 139750277650240 logging_logger.py:44] Constructing tf.data.Dataset yelp_polarity_reviews for split None, from ~/tensorflow_datasets/yelp_polarity_reviews/0.2.0
+I0627 15:25:14.221701 139750277650240 input_pipeline.py:64] Data sample: {'label': 1, 'text': b'A large selection of food from all over the world. Great atmosphere and ambiance.  Quality of food is on par with a 5 star hotel. But did not have lobster and king crab that I was expecting for this kind of price.'}
+INFO:tensorflow:Train/val/test dataset sizes: 560000, 38000, 38000
+I0627 15:25:14.246746 139750277650240 input_pipeline.py:134] Train/val/test dataset sizes: 560000, 38000, 38000
+INFO:tensorflow:Finished preprocessing
+I0627 15:25:14.246860 139750277650240 input_pipeline.py:135] Finished preprocessing
+INFO:tensorflow:<MapDataset element_spec={'Source': TensorSpec(shape=(), dtype=tf.string, name=None), 'Target': TensorSpec(shape=(), dtype=tf.int64, name=None)}>
+I0627 15:25:14.246907 139750277650240 input_pipeline.py:136] <MapDataset element_spec={'Source': TensorSpec(shape=(), dtype=tf.string, name=None), 'Target': TensorSpec(shape=(), dtype=tf.int64, name=None)}>
+I0627 15:25:14.247020 139750277650240 input_pipeline.py:139] Using char/byte level vocab
+I0627 15:25:14.314260 139750277650240 train.py:163] Vocab Size: 257
+Traceback (most recent call last):
+  File "/home/jasonb/2022-urop/long-range-arena-linen/lra_benchmarks/text_classification/train.py", line 304, in <module>
+    app.run(main)
+  File "/home/jasonb/py_venv/lib/python3.10/site-packages/absl/app.py", line 312, in run
+    _run_main(main, args)
+  File "/home/jasonb/py_venv/lib/python3.10/site-packages/absl/app.py", line 258, in _run_main
+    sys.exit(main(argv))
+  File "/home/jasonb/2022-urop/long-range-arena-linen/lra_benchmarks/text_classification/train.py", line 201, in main
+    t_state = train_utils.get_model(model_type, create_train_state, model_kwargs, init_rng,
+  File "/home/jasonb/2022-urop/long-range-arena-linen/lra_benchmarks/utils/train_utils.py", line 47, in get_model
+    return create_model_fn(transformer.TransformerEncoder, model_kwargs,
+  File "/home/jasonb/2022-urop/long-range-arena-linen/lra_benchmarks/text_classification/train.py", line 69, in create_train_state
+    return _create_train_state(init_rng)
+  File "/home/jasonb/py_venv/lib/python3.10/site-packages/jax/_src/traceback_util.py", line 162, in reraise_with_filtered_traceback
+    return fun(*args, **kwargs)
+  File "/home/jasonb/py_venv/lib/python3.10/site-packages/jax/_src/api.py", line 473, in cache_miss
+    out_flat = xla.xla_call(
+  File "/home/jasonb/py_venv/lib/python3.10/site-packages/jax/core.py", line 1765, in bind
+    return call_bind(self, fun, *args, **params)
+  File "/home/jasonb/py_venv/lib/python3.10/site-packages/jax/core.py", line 1781, in call_bind
+    outs = top_trace.process_call(primitive, fun_, tracers, params)
+  File "/home/jasonb/py_venv/lib/python3.10/site-packages/jax/core.py", line 678, in process_call
+    return primitive.impl(f, *tracers, **params)
+  File "/home/jasonb/py_venv/lib/python3.10/site-packages/jax/_src/dispatch.py", line 182, in _xla_call_impl
+    compiled_fun = _xla_callable(fun, device, backend, name, donated_invars,
+  File "/home/jasonb/py_venv/lib/python3.10/site-packages/jax/linear_util.py", line 285, in memoized_fun
+    ans = call(fun, *args)
+  File "/home/jasonb/py_venv/lib/python3.10/site-packages/jax/_src/dispatch.py", line 230, in _xla_callable_uncached
+    return lower_xla_callable(fun, device, backend, name, donated_invars, False,
+  File "/home/jasonb/py_venv/lib/python3.10/site-packages/jax/_src/profiler.py", line 206, in wrapper
+    return func(*args, **kwargs)
+  File "/home/jasonb/py_venv/lib/python3.10/site-packages/jax/_src/dispatch.py", line 340, in lower_xla_callable
+    module, keepalive = mlir.lower_jaxpr_to_module(
+  File "/home/jasonb/py_venv/lib/python3.10/site-packages/jax/interpreters/mlir.py", line 556, in lower_jaxpr_to_module
+    lower_jaxpr_to_fun(
+  File "/home/jasonb/py_venv/lib/python3.10/site-packages/jax/interpreters/mlir.py", line 810, in lower_jaxpr_to_fun
+    out_vals, tokens_out = jaxpr_subcomp(ctx.replace(name_stack=callee_name_stack),
+  File "/home/jasonb/py_venv/lib/python3.10/site-packages/jax/interpreters/mlir.py", line 923, in jaxpr_subcomp
+    effects = [eff for eff in eqn.effects if eff in core.ordered_effects]
+  File "/home/jasonb/py_venv/lib/python3.10/site-packages/jax/interpreters/mlir.py", line 923, in <listcomp>
+    effects = [eff for eff in eqn.effects if eff in core.ordered_effects]
+KeyboardInterrupt

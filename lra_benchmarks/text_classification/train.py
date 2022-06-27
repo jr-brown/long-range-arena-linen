@@ -156,7 +156,8 @@ def main(argv):
             data_dir=FLAGS.data_dir,
             batch_size=batch_size,
             fixed_vocab=None,
-            max_length=max_length)
+            max_length=max_length,
+            num_data_entries=config.num_data_entries)
 
     vocab_size = encoder.vocab_size
     logging.info('Vocab Size: %d', vocab_size)
