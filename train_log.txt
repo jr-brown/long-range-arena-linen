@@ -1,8 +1,14 @@
-2022-06-27 15:25:12.664211: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcudart.so.11.0'; dlerror: libcudart.so.11.0: cannot open shared object file: No such file or directory
-2022-06-27 15:25:14.116514: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcuda.so.1'; dlerror: libcuda.so.1: cannot open shared object file: No such file or directory
-2022-06-27 15:25:14.116547: W tensorflow/stream_executor/cuda/cuda_driver.cc:269] failed call to cuInit: UNKNOWN ERROR (303)
-I0627 15:25:14.117007 139750277650240 train.py:134] ===========Config Dict============
-I0627 15:25:14.117142 139750277650240 train.py:135] batch_size: 32
+2022-06-28 11:52:02.603426: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcublas.so.11'; dlerror: libcublas.so.11: cannot open shared object file: No such file or directory
+2022-06-28 11:52:02.603736: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcublasLt.so.11'; dlerror: libcublasLt.so.11: cannot open shared object file: No such file or directory
+2022-06-28 11:52:02.603899: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcufft.so.10'; dlerror: libcufft.so.10: cannot open shared object file: No such file or directory
+2022-06-28 11:52:02.604053: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcurand.so.10'; dlerror: libcurand.so.10: cannot open shared object file: No such file or directory
+2022-06-28 11:52:02.604213: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcusolver.so.11'; dlerror: libcusolver.so.11: cannot open shared object file: No such file or directory
+2022-06-28 11:52:02.604366: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcusparse.so.11'; dlerror: libcusparse.so.11: cannot open shared object file: No such file or directory
+2022-06-28 11:52:02.604523: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcudnn.so.8'; dlerror: libcudnn.so.8: cannot open shared object file: No such file or directory
+2022-06-28 11:52:02.604564: W tensorflow/core/common_runtime/gpu/gpu_device.cc:1850] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+Skipping registering GPU devices...
+I0628 11:52:02.605102 140535296250240 train.py:134] ===========Config Dict============
+I0628 11:52:02.605418 140535296250240 train.py:135] batch_size: 32
 checkpoint_freq: 10000
 classifier_pool: CLS
 emb_dim: 256
@@ -31,61 +37,364 @@ trial: 0
 warmup: 8000
 weight_decay: 0.1
 
-I0627 15:25:14.120533 139750277650240 xla_bridge.py:330] Unable to initialize backend 'tpu_driver': NOT_FOUND: Unable to find driver in registry given worker: 
-I0627 15:25:14.120693 139750277650240 xla_bridge.py:330] Unable to initialize backend 'gpu': NOT_FOUND: Could not find registered platform with name: "cuda". Available platform names are: Interpreter Host
-I0627 15:25:14.120898 139750277650240 xla_bridge.py:330] Unable to initialize backend 'tpu': INVALID_ARGUMENT: TpuPlatform is not available.
-W0627 15:25:14.120971 139750277650240 xla_bridge.py:335] No GPU/TPU found, falling back to CPU. (Set TF_CPP_MIN_LOG_LEVEL=0 and rerun for more info.)
-I0627 15:25:14.124505 139750277650240 dataset_info.py:491] Load dataset info from ~/tensorflow_datasets/yelp_polarity_reviews/0.2.0
-I0627 15:25:14.126246 139750277650240 dataset_builder.py:383] Reusing dataset yelp_polarity_reviews (~/tensorflow_datasets/yelp_polarity_reviews/0.2.0)
-I0627 15:25:14.126350 139750277650240 logging_logger.py:44] Constructing tf.data.Dataset yelp_polarity_reviews for split None, from ~/tensorflow_datasets/yelp_polarity_reviews/0.2.0
-I0627 15:25:14.221701 139750277650240 input_pipeline.py:64] Data sample: {'label': 1, 'text': b'A large selection of food from all over the world. Great atmosphere and ambiance.  Quality of food is on par with a 5 star hotel. But did not have lobster and king crab that I was expecting for this kind of price.'}
+I0628 11:52:02.616456 140535296250240 xla_bridge.py:330] Unable to initialize backend 'tpu_driver': NOT_FOUND: Unable to find driver in registry given worker: 
+I0628 11:52:03.686593 140535296250240 xla_bridge.py:330] Unable to initialize backend 'tpu': INVALID_ARGUMENT: TpuPlatform is not available.
+I0628 11:52:03.695811 140535296250240 dataset_info.py:491] Load dataset info from ./tf_datasets/yelp_polarity_reviews/0.2.0
+I0628 11:52:03.698917 140535296250240 dataset_builder.py:383] Reusing dataset yelp_polarity_reviews (./tf_datasets/yelp_polarity_reviews/0.2.0)
+I0628 11:52:03.699066 140535296250240 logging_logger.py:44] Constructing tf.data.Dataset yelp_polarity_reviews for split None, from ./tf_datasets/yelp_polarity_reviews/0.2.0
+I0628 11:52:03.856313 140535296250240 input_pipeline.py:64] Data sample: {'label': 1, 'text': b'A large selection of food from all over the world. Great atmosphere and ambiance.  Quality of food is on par with a 5 star hotel. But did not have lobster and king crab that I was expecting for this kind of price.'}
 INFO:tensorflow:Train/val/test dataset sizes: 560000, 38000, 38000
-I0627 15:25:14.246746 139750277650240 input_pipeline.py:134] Train/val/test dataset sizes: 560000, 38000, 38000
+I0628 11:52:04.036649 140535296250240 input_pipeline.py:134] Train/val/test dataset sizes: 560000, 38000, 38000
 INFO:tensorflow:Finished preprocessing
-I0627 15:25:14.246860 139750277650240 input_pipeline.py:135] Finished preprocessing
+I0628 11:52:04.036901 140535296250240 input_pipeline.py:135] Finished preprocessing
 INFO:tensorflow:<MapDataset element_spec={'Source': TensorSpec(shape=(), dtype=tf.string, name=None), 'Target': TensorSpec(shape=(), dtype=tf.int64, name=None)}>
-I0627 15:25:14.246907 139750277650240 input_pipeline.py:136] <MapDataset element_spec={'Source': TensorSpec(shape=(), dtype=tf.string, name=None), 'Target': TensorSpec(shape=(), dtype=tf.int64, name=None)}>
-I0627 15:25:14.247020 139750277650240 input_pipeline.py:139] Using char/byte level vocab
-I0627 15:25:14.314260 139750277650240 train.py:163] Vocab Size: 257
+I0628 11:52:04.037007 140535296250240 input_pipeline.py:136] <MapDataset element_spec={'Source': TensorSpec(shape=(), dtype=tf.string, name=None), 'Target': TensorSpec(shape=(), dtype=tf.int64, name=None)}>
+I0628 11:52:04.037233 140535296250240 input_pipeline.py:139] Using char/byte level vocab
+I0628 11:52:04.155002 140535296250240 train.py:163] Vocab Size: 257
+2022-06-28 11:52:04.398306: W external/org_tensorflow/tensorflow/stream_executor/gpu/asm_compiler.cc:111] *** WARNING *** You are using ptxas 10.1.105, which is older than 11.1. ptxas before 11.1 is known to miscompile XLA code, leading to incorrect results or invalid-address errors.
+
+You may not need to update to CUDA 11.1; cherry-picking the ptxas binary is often sufficient.
+2022-06-28 11:52:04.478046: W external/org_tensorflow/tensorflow/stream_executor/gpu/asm_compiler.cc:111] *** WARNING *** You are using ptxas 10.1.105, which is older than 11.1. ptxas before 11.1 is known to miscompile XLA code, leading to incorrect results or invalid-address errors.
+
+You may not need to update to CUDA 11.1; cherry-picking the ptxas binary is often sufficient.
+2022-06-28 11:52:04.567422: W external/org_tensorflow/tensorflow/stream_executor/gpu/asm_compiler.cc:111] *** WARNING *** You are using ptxas 10.1.105, which is older than 11.1. ptxas before 11.1 is known to miscompile XLA code, leading to incorrect results or invalid-address errors.
+
+You may not need to update to CUDA 11.1; cherry-picking the ptxas binary is often sufficient.
+2022-06-28 11:52:04.651728: W external/org_tensorflow/tensorflow/stream_executor/gpu/asm_compiler.cc:111] *** WARNING *** You are using ptxas 10.1.105, which is older than 11.1. ptxas before 11.1 is known to miscompile XLA code, leading to incorrect results or invalid-address errors.
+
+You may not need to update to CUDA 11.1; cherry-picking the ptxas binary is often sufficient.
+2022-06-28 11:52:04.753195: W external/org_tensorflow/tensorflow/stream_executor/gpu/asm_compiler.cc:111] *** WARNING *** You are using ptxas 10.1.105, which is older than 11.1. ptxas before 11.1 is known to miscompile XLA code, leading to incorrect results or invalid-address errors.
+
+You may not need to update to CUDA 11.1; cherry-picking the ptxas binary is often sufficient.
+2022-06-28 11:52:04.757143: W external/org_tensorflow/tensorflow/stream_executor/gpu/asm_compiler.cc:111] *** WARNING *** You are using ptxas 10.1.105, which is older than 11.1. ptxas before 11.1 is known to miscompile XLA code, leading to incorrect results or invalid-address errors.
+
+You may not need to update to CUDA 11.1; cherry-picking the ptxas binary is often sufficient.
+2022-06-28 11:52:04.761105: W external/org_tensorflow/tensorflow/stream_executor/gpu/asm_compiler.cc:111] *** WARNING *** You are using ptxas 10.1.105, which is older than 11.1. ptxas before 11.1 is known to miscompile XLA code, leading to incorrect results or invalid-address errors.
+
+You may not need to update to CUDA 11.1; cherry-picking the ptxas binary is often sufficient.
+2022-06-28 11:52:05.619695: W external/org_tensorflow/tensorflow/stream_executor/gpu/asm_compiler.cc:111] *** WARNING *** You are using ptxas 10.1.105, which is older than 11.1. ptxas before 11.1 is known to miscompile XLA code, leading to incorrect results or invalid-address errors.
+
+You may not need to update to CUDA 11.1; cherry-picking the ptxas binary is often sufficient.
+2022-06-28 11:52:05.620725: W external/org_tensorflow/tensorflow/stream_executor/gpu/asm_compiler.cc:111] *** WARNING *** You are using ptxas 10.1.105, which is older than 11.1. ptxas before 11.1 is known to miscompile XLA code, leading to incorrect results or invalid-address errors.
+
+You may not need to update to CUDA 11.1; cherry-picking the ptxas binary is often sufficient.
+2022-06-28 11:52:05.621826: W external/org_tensorflow/tensorflow/stream_executor/gpu/asm_compiler.cc:111] *** WARNING *** You are using ptxas 10.1.105, which is older than 11.1. ptxas before 11.1 is known to miscompile XLA code, leading to incorrect results or invalid-address errors.
+
+You may not need to update to CUDA 11.1; cherry-picking the ptxas binary is often sufficient.
+2022-06-28 11:52:05.697826: W external/org_tensorflow/tensorflow/stream_executor/gpu/asm_compiler.cc:111] *** WARNING *** You are using ptxas 10.1.105, which is older than 11.1. ptxas before 11.1 is known to miscompile XLA code, leading to incorrect results or invalid-address errors.
+
+You may not need to update to CUDA 11.1; cherry-picking the ptxas binary is often sufficient.
+2022-06-28 11:52:05.779396: W external/org_tensorflow/tensorflow/stream_executor/gpu/asm_compiler.cc:111] *** WARNING *** You are using ptxas 10.1.105, which is older than 11.1. ptxas before 11.1 is known to miscompile XLA code, leading to incorrect results or invalid-address errors.
+
+You may not need to update to CUDA 11.1; cherry-picking the ptxas binary is often sufficient.
+2022-06-28 11:52:05.781341: W external/org_tensorflow/tensorflow/stream_executor/gpu/asm_compiler.cc:111] *** WARNING *** You are using ptxas 10.1.105, which is older than 11.1. ptxas before 11.1 is known to miscompile XLA code, leading to incorrect results or invalid-address errors.
+
+You may not need to update to CUDA 11.1; cherry-picking the ptxas binary is often sufficient.
+2022-06-28 11:52:05.784104: W external/org_tensorflow/tensorflow/stream_executor/gpu/asm_compiler.cc:111] *** WARNING *** You are using ptxas 10.1.105, which is older than 11.1. ptxas before 11.1 is known to miscompile XLA code, leading to incorrect results or invalid-address errors.
+
+You may not need to update to CUDA 11.1; cherry-picking the ptxas binary is often sufficient.
+I0628 11:52:25.330457 140535296250240 checkpoints.py:249] Found no checkpoint files in models/text_classification with prefix checkpoint_
+I0628 11:52:26.025438 140535296250240 train.py:252] Starting training
+I0628 11:52:26.025650 140535296250240 train.py:253] ====================
+2022-06-28 11:52:30.990843: W external/org_tensorflow/tensorflow/stream_executor/gpu/asm_compiler.cc:111] *** WARNING *** You are using ptxas 10.1.105, which is older than 11.1. ptxas before 11.1 is known to miscompile XLA code, leading to incorrect results or invalid-address errors.
+
+You may not need to update to CUDA 11.1; cherry-picking the ptxas binary is often sufficient.
+2022-06-28 11:52:31.052684: W external/org_tensorflow/tensorflow/stream_executor/gpu/asm_compiler.cc:111] *** WARNING *** You are using ptxas 10.1.105, which is older than 11.1. ptxas before 11.1 is known to miscompile XLA code, leading to incorrect results or invalid-address errors.
+
+You may not need to update to CUDA 11.1; cherry-picking the ptxas binary is often sufficient.
+2022-06-28 11:52:33.540198: W external/org_tensorflow/tensorflow/stream_executor/gpu/asm_compiler.cc:111] *** WARNING *** You are using ptxas 10.1.105, which is older than 11.1. ptxas before 11.1 is known to miscompile XLA code, leading to incorrect results or invalid-address errors.
+
+You may not need to update to CUDA 11.1; cherry-picking the ptxas binary is often sufficient.
+2022-06-28 11:52:33.544666: W external/org_tensorflow/tensorflow/stream_executor/gpu/asm_compiler.cc:111] *** WARNING *** You are using ptxas 10.1.105, which is older than 11.1. ptxas before 11.1 is known to miscompile XLA code, leading to incorrect results or invalid-address errors.
+
+You may not need to update to CUDA 11.1; cherry-picking the ptxas binary is often sufficient.
+2022-06-28 11:52:33.556467: W external/org_tensorflow/tensorflow/stream_executor/gpu/asm_compiler.cc:111] *** WARNING *** You are using ptxas 10.1.105, which is older than 11.1. ptxas before 11.1 is known to miscompile XLA code, leading to incorrect results or invalid-address errors.
+
+You may not need to update to CUDA 11.1; cherry-picking the ptxas binary is often sufficient.
+2022-06-28 11:52:33.568217: W external/org_tensorflow/tensorflow/stream_executor/gpu/asm_compiler.cc:111] *** WARNING *** You are using ptxas 10.1.105, which is older than 11.1. ptxas before 11.1 is known to miscompile XLA code, leading to incorrect results or invalid-address errors.
+
+You may not need to update to CUDA 11.1; cherry-picking the ptxas binary is often sufficient.
+2022-06-28 11:52:33.578162: W external/org_tensorflow/tensorflow/stream_executor/gpu/asm_compiler.cc:111] *** WARNING *** You are using ptxas 10.1.105, which is older than 11.1. ptxas before 11.1 is known to miscompile XLA code, leading to incorrect results or invalid-address errors.
+
+You may not need to update to CUDA 11.1; cherry-picking the ptxas binary is often sufficient.
+2022-06-28 11:52:33.587367: W external/org_tensorflow/tensorflow/stream_executor/gpu/asm_compiler.cc:111] *** WARNING *** You are using ptxas 10.1.105, which is older than 11.1. ptxas before 11.1 is known to miscompile XLA code, leading to incorrect results or invalid-address errors.
+
+You may not need to update to CUDA 11.1; cherry-picking the ptxas binary is often sufficient.
+2022-06-28 11:52:33.588794: W external/org_tensorflow/tensorflow/stream_executor/gpu/asm_compiler.cc:111] *** WARNING *** You are using ptxas 10.1.105, which is older than 11.1. ptxas before 11.1 is known to miscompile XLA code, leading to incorrect results or invalid-address errors.
+
+You may not need to update to CUDA 11.1; cherry-picking the ptxas binary is often sufficient.
+2022-06-28 11:52:33.591688: W external/org_tensorflow/tensorflow/stream_executor/gpu/asm_compiler.cc:111] *** WARNING *** You are using ptxas 10.1.105, which is older than 11.1. ptxas before 11.1 is known to miscompile XLA code, leading to incorrect results or invalid-address errors.
+
+You may not need to update to CUDA 11.1; cherry-picking the ptxas binary is often sufficient.
+2022-06-28 11:52:33.613671: W external/org_tensorflow/tensorflow/stream_executor/gpu/asm_compiler.cc:111] *** WARNING *** You are using ptxas 10.1.105, which is older than 11.1. ptxas before 11.1 is known to miscompile XLA code, leading to incorrect results or invalid-address errors.
+
+You may not need to update to CUDA 11.1; cherry-picking the ptxas binary is often sufficient.
+2022-06-28 11:52:33.616966: W external/org_tensorflow/tensorflow/stream_executor/gpu/asm_compiler.cc:111] *** WARNING *** You are using ptxas 10.1.105, which is older than 11.1. ptxas before 11.1 is known to miscompile XLA code, leading to incorrect results or invalid-address errors.
+
+You may not need to update to CUDA 11.1; cherry-picking the ptxas binary is often sufficient.
+2022-06-28 11:52:33.617139: W external/org_tensorflow/tensorflow/stream_executor/gpu/asm_compiler.cc:111] *** WARNING *** You are using ptxas 10.1.105, which is older than 11.1. ptxas before 11.1 is known to miscompile XLA code, leading to incorrect results or invalid-address errors.
+
+You may not need to update to CUDA 11.1; cherry-picking the ptxas binary is often sufficient.
+2022-06-28 11:52:33.621137: W external/org_tensorflow/tensorflow/stream_executor/gpu/asm_compiler.cc:111] *** WARNING *** You are using ptxas 10.1.105, which is older than 11.1. ptxas before 11.1 is known to miscompile XLA code, leading to incorrect results or invalid-address errors.
+
+You may not need to update to CUDA 11.1; cherry-picking the ptxas binary is often sufficient.
+2022-06-28 11:52:33.639134: W external/org_tensorflow/tensorflow/stream_executor/gpu/asm_compiler.cc:111] *** WARNING *** You are using ptxas 10.1.105, which is older than 11.1. ptxas before 11.1 is known to miscompile XLA code, leading to incorrect results or invalid-address errors.
+
+You may not need to update to CUDA 11.1; cherry-picking the ptxas binary is often sufficient.
+2022-06-28 11:52:33.642817: W external/org_tensorflow/tensorflow/stream_executor/gpu/asm_compiler.cc:111] *** WARNING *** You are using ptxas 10.1.105, which is older than 11.1. ptxas before 11.1 is known to miscompile XLA code, leading to incorrect results or invalid-address errors.
+
+You may not need to update to CUDA 11.1; cherry-picking the ptxas binary is often sufficient.
+2022-06-28 11:52:33.648677: W external/org_tensorflow/tensorflow/stream_executor/gpu/asm_compiler.cc:111] *** WARNING *** You are using ptxas 10.1.105, which is older than 11.1. ptxas before 11.1 is known to miscompile XLA code, leading to incorrect results or invalid-address errors.
+
+You may not need to update to CUDA 11.1; cherry-picking the ptxas binary is often sufficient.
+2022-06-28 11:52:33.651671: W external/org_tensorflow/tensorflow/stream_executor/gpu/asm_compiler.cc:111] *** WARNING *** You are using ptxas 10.1.105, which is older than 11.1. ptxas before 11.1 is known to miscompile XLA code, leading to incorrect results or invalid-address errors.
+
+You may not need to update to CUDA 11.1; cherry-picking the ptxas binary is often sufficient.
+2022-06-28 11:52:33.652053: W external/org_tensorflow/tensorflow/stream_executor/gpu/asm_compiler.cc:111] *** WARNING *** You are using ptxas 10.1.105, which is older than 11.1. ptxas before 11.1 is known to miscompile XLA code, leading to incorrect results or invalid-address errors.
+
+You may not need to update to CUDA 11.1; cherry-picking the ptxas binary is often sufficient.
+2022-06-28 11:52:33.653117: W external/org_tensorflow/tensorflow/stream_executor/gpu/asm_compiler.cc:111] *** WARNING *** You are using ptxas 10.1.105, which is older than 11.1. ptxas before 11.1 is known to miscompile XLA code, leading to incorrect results or invalid-address errors.
+
+You may not need to update to CUDA 11.1; cherry-picking the ptxas binary is often sufficient.
+2022-06-28 11:52:33.655216: W external/org_tensorflow/tensorflow/stream_executor/gpu/asm_compiler.cc:111] *** WARNING *** You are using ptxas 10.1.105, which is older than 11.1. ptxas before 11.1 is known to miscompile XLA code, leading to incorrect results or invalid-address errors.
+
+You may not need to update to CUDA 11.1; cherry-picking the ptxas binary is often sufficient.
+2022-06-28 11:52:33.667567: W external/org_tensorflow/tensorflow/stream_executor/gpu/asm_compiler.cc:111] *** WARNING *** You are using ptxas 10.1.105, which is older than 11.1. ptxas before 11.1 is known to miscompile XLA code, leading to incorrect results or invalid-address errors.
+
+You may not need to update to CUDA 11.1; cherry-picking the ptxas binary is often sufficient.
+2022-06-28 11:52:33.677155: W external/org_tensorflow/tensorflow/stream_executor/gpu/asm_compiler.cc:111] *** WARNING *** You are using ptxas 10.1.105, which is older than 11.1. ptxas before 11.1 is known to miscompile XLA code, leading to incorrect results or invalid-address errors.
+
+You may not need to update to CUDA 11.1; cherry-picking the ptxas binary is often sufficient.
+2022-06-28 11:52:33.692298: W external/org_tensorflow/tensorflow/stream_executor/gpu/asm_compiler.cc:111] *** WARNING *** You are using ptxas 10.1.105, which is older than 11.1. ptxas before 11.1 is known to miscompile XLA code, leading to incorrect results or invalid-address errors.
+
+You may not need to update to CUDA 11.1; cherry-picking the ptxas binary is often sufficient.
+2022-06-28 11:52:33.692492: W external/org_tensorflow/tensorflow/stream_executor/gpu/asm_compiler.cc:111] *** WARNING *** You are using ptxas 10.1.105, which is older than 11.1. ptxas before 11.1 is known to miscompile XLA code, leading to incorrect results or invalid-address errors.
+
+You may not need to update to CUDA 11.1; cherry-picking the ptxas binary is often sufficient.
+2022-06-28 11:52:33.695778: W external/org_tensorflow/tensorflow/stream_executor/gpu/asm_compiler.cc:111] *** WARNING *** You are using ptxas 10.1.105, which is older than 11.1. ptxas before 11.1 is known to miscompile XLA code, leading to incorrect results or invalid-address errors.
+
+You may not need to update to CUDA 11.1; cherry-picking the ptxas binary is often sufficient.
+2022-06-28 11:52:33.719764: W external/org_tensorflow/tensorflow/stream_executor/gpu/asm_compiler.cc:111] *** WARNING *** You are using ptxas 10.1.105, which is older than 11.1. ptxas before 11.1 is known to miscompile XLA code, leading to incorrect results or invalid-address errors.
+
+You may not need to update to CUDA 11.1; cherry-picking the ptxas binary is often sufficient.
+2022-06-28 11:52:33.724895: W external/org_tensorflow/tensorflow/stream_executor/gpu/asm_compiler.cc:111] *** WARNING *** You are using ptxas 10.1.105, which is older than 11.1. ptxas before 11.1 is known to miscompile XLA code, leading to incorrect results or invalid-address errors.
+
+You may not need to update to CUDA 11.1; cherry-picking the ptxas binary is often sufficient.
+2022-06-28 11:52:33.733251: W external/org_tensorflow/tensorflow/stream_executor/gpu/asm_compiler.cc:111] *** WARNING *** You are using ptxas 10.1.105, which is older than 11.1. ptxas before 11.1 is known to miscompile XLA code, leading to incorrect results or invalid-address errors.
+
+You may not need to update to CUDA 11.1; cherry-picking the ptxas binary is often sufficient.
+2022-06-28 11:52:33.744342: W external/org_tensorflow/tensorflow/stream_executor/gpu/asm_compiler.cc:111] *** WARNING *** You are using ptxas 10.1.105, which is older than 11.1. ptxas before 11.1 is known to miscompile XLA code, leading to incorrect results or invalid-address errors.
+
+You may not need to update to CUDA 11.1; cherry-picking the ptxas binary is often sufficient.
+2022-06-28 11:52:33.751133: W external/org_tensorflow/tensorflow/stream_executor/gpu/asm_compiler.cc:111] *** WARNING *** You are using ptxas 10.1.105, which is older than 11.1. ptxas before 11.1 is known to miscompile XLA code, leading to incorrect results or invalid-address errors.
+
+You may not need to update to CUDA 11.1; cherry-picking the ptxas binary is often sufficient.
+2022-06-28 11:52:33.777133: W external/org_tensorflow/tensorflow/stream_executor/gpu/asm_compiler.cc:111] *** WARNING *** You are using ptxas 10.1.105, which is older than 11.1. ptxas before 11.1 is known to miscompile XLA code, leading to incorrect results or invalid-address errors.
+
+You may not need to update to CUDA 11.1; cherry-picking the ptxas binary is often sufficient.
+2022-06-28 11:52:33.826006: W external/org_tensorflow/tensorflow/stream_executor/gpu/asm_compiler.cc:111] *** WARNING *** You are using ptxas 10.1.105, which is older than 11.1. ptxas before 11.1 is known to miscompile XLA code, leading to incorrect results or invalid-address errors.
+
+You may not need to update to CUDA 11.1; cherry-picking the ptxas binary is often sufficient.
+2022-06-28 11:52:33.876847: W external/org_tensorflow/tensorflow/stream_executor/gpu/asm_compiler.cc:111] *** WARNING *** You are using ptxas 10.1.105, which is older than 11.1. ptxas before 11.1 is known to miscompile XLA code, leading to incorrect results or invalid-address errors.
+
+You may not need to update to CUDA 11.1; cherry-picking the ptxas binary is often sufficient.
+2022-06-28 11:52:34.256967: W external/org_tensorflow/tensorflow/stream_executor/gpu/asm_compiler.cc:111] *** WARNING *** You are using ptxas 10.1.105, which is older than 11.1. ptxas before 11.1 is known to miscompile XLA code, leading to incorrect results or invalid-address errors.
+
+You may not need to update to CUDA 11.1; cherry-picking the ptxas binary is often sufficient.
+2022-06-28 11:52:37.813506: E external/org_tensorflow/tensorflow/compiler/xla/pjrt/pjrt_stream_executor_client.cc:2141] Execution of replica 1 failed: INTERNAL: external/org_tensorflow/tensorflow/compiler/xla/service/gpu/nccl_utils.cc:342: NCCL operation ncclCommInitRank(comm.get(), nranks, id, rank) failed: unhandled cuda error
+2022-06-28 11:52:37.815171: E external/org_tensorflow/tensorflow/compiler/xla/pjrt/pjrt_stream_executor_client.cc:2141] Execution of replica 2 failed: INTERNAL: external/org_tensorflow/tensorflow/compiler/xla/service/gpu/nccl_utils.cc:342: NCCL operation ncclCommInitRank(comm.get(), nranks, id, rank) failed: unhandled cuda error
+2022-06-28 11:52:37.817784: E external/org_tensorflow/tensorflow/compiler/xla/pjrt/pjrt_stream_executor_client.cc:2141] Execution of replica 3 failed: INTERNAL: external/org_tensorflow/tensorflow/compiler/xla/service/gpu/nccl_utils.cc:342: NCCL operation ncclCommInitRank(comm.get(), nranks, id, rank) failed: unhandled cuda error
+2022-06-28 11:52:37.819754: E external/org_tensorflow/tensorflow/compiler/xla/pjrt/pjrt_stream_executor_client.cc:2141] Execution of replica 0 failed: INTERNAL: external/org_tensorflow/tensorflow/compiler/xla/service/gpu/nccl_utils.cc:342: NCCL operation ncclCommInitRank(comm.get(), nranks, id, rank) failed: unhandled cuda error
 Traceback (most recent call last):
-  File "/home/jasonb/2022-urop/long-range-arena-linen/lra_benchmarks/text_classification/train.py", line 304, in <module>
+  File "/local/scratch-3/jrb239/long-range-arena-linen/lra_benchmarks/text_classification/train.py", line 304, in <module>
     app.run(main)
-  File "/home/jasonb/py_venv/lib/python3.10/site-packages/absl/app.py", line 312, in run
+  File "/local/scratch-3/jrb239/.conda/envs/tflow-jax-flax/lib/python3.9/site-packages/absl/app.py", line 312, in run
     _run_main(main, args)
-  File "/home/jasonb/py_venv/lib/python3.10/site-packages/absl/app.py", line 258, in _run_main
+  File "/local/scratch-3/jrb239/.conda/envs/tflow-jax-flax/lib/python3.9/site-packages/absl/app.py", line 258, in _run_main
     sys.exit(main(argv))
-  File "/home/jasonb/2022-urop/long-range-arena-linen/lra_benchmarks/text_classification/train.py", line 201, in main
-    t_state = train_utils.get_model(model_type, create_train_state, model_kwargs, init_rng,
-  File "/home/jasonb/2022-urop/long-range-arena-linen/lra_benchmarks/utils/train_utils.py", line 47, in get_model
-    return create_model_fn(transformer.TransformerEncoder, model_kwargs,
-  File "/home/jasonb/2022-urop/long-range-arena-linen/lra_benchmarks/text_classification/train.py", line 69, in create_train_state
-    return _create_train_state(init_rng)
-  File "/home/jasonb/py_venv/lib/python3.10/site-packages/jax/_src/traceback_util.py", line 162, in reraise_with_filtered_traceback
+  File "/local/scratch-3/jrb239/long-range-arena-linen/lra_benchmarks/text_classification/train.py", line 257, in main
+    t_state, metrics, dropout_rngs = p_train_step(t_state, batch,
+  File "/local/scratch-3/jrb239/.conda/envs/tflow-jax-flax/lib/python3.9/site-packages/jax/_src/traceback_util.py", line 162, in reraise_with_filtered_traceback
     return fun(*args, **kwargs)
-  File "/home/jasonb/py_venv/lib/python3.10/site-packages/jax/_src/api.py", line 473, in cache_miss
-    out_flat = xla.xla_call(
-  File "/home/jasonb/py_venv/lib/python3.10/site-packages/jax/core.py", line 1765, in bind
-    return call_bind(self, fun, *args, **params)
-  File "/home/jasonb/py_venv/lib/python3.10/site-packages/jax/core.py", line 1781, in call_bind
-    outs = top_trace.process_call(primitive, fun_, tracers, params)
-  File "/home/jasonb/py_venv/lib/python3.10/site-packages/jax/core.py", line 678, in process_call
+  File "/local/scratch-3/jrb239/.conda/envs/tflow-jax-flax/lib/python3.9/site-packages/jax/_src/api.py", line 2026, in cache_miss
+    out_tree, out_flat = f_pmapped_(*args, **kwargs)
+  File "/local/scratch-3/jrb239/.conda/envs/tflow-jax-flax/lib/python3.9/site-packages/jax/_src/api.py", line 1902, in pmap_f
+    out = pxla.xla_pmap(
+  File "/local/scratch-3/jrb239/.conda/envs/tflow-jax-flax/lib/python3.9/site-packages/jax/core.py", line 1868, in bind
+    return map_bind(self, fun, *args, **params)
+  File "/local/scratch-3/jrb239/.conda/envs/tflow-jax-flax/lib/python3.9/site-packages/jax/core.py", line 1900, in map_bind
+    outs = primitive.process(top_trace, fun, tracers, params)
+  File "/local/scratch-3/jrb239/.conda/envs/tflow-jax-flax/lib/python3.9/site-packages/jax/core.py", line 1871, in process
+    return trace.process_map(self, fun, tracers, params)
+  File "/local/scratch-3/jrb239/.conda/envs/tflow-jax-flax/lib/python3.9/site-packages/jax/core.py", line 678, in process_call
     return primitive.impl(f, *tracers, **params)
-  File "/home/jasonb/py_venv/lib/python3.10/site-packages/jax/_src/dispatch.py", line 182, in _xla_call_impl
-    compiled_fun = _xla_callable(fun, device, backend, name, donated_invars,
-  File "/home/jasonb/py_venv/lib/python3.10/site-packages/jax/linear_util.py", line 285, in memoized_fun
-    ans = call(fun, *args)
-  File "/home/jasonb/py_venv/lib/python3.10/site-packages/jax/_src/dispatch.py", line 230, in _xla_callable_uncached
-    return lower_xla_callable(fun, device, backend, name, donated_invars, False,
-  File "/home/jasonb/py_venv/lib/python3.10/site-packages/jax/_src/profiler.py", line 206, in wrapper
+  File "/local/scratch-3/jrb239/.conda/envs/tflow-jax-flax/lib/python3.9/site-packages/jax/interpreters/pxla.py", line 802, in xla_pmap_impl
+    return compiled_fun(*args)
+  File "/local/scratch-3/jrb239/.conda/envs/tflow-jax-flax/lib/python3.9/site-packages/jax/_src/profiler.py", line 206, in wrapper
     return func(*args, **kwargs)
-  File "/home/jasonb/py_venv/lib/python3.10/site-packages/jax/_src/dispatch.py", line 340, in lower_xla_callable
-    module, keepalive = mlir.lower_jaxpr_to_module(
-  File "/home/jasonb/py_venv/lib/python3.10/site-packages/jax/interpreters/mlir.py", line 556, in lower_jaxpr_to_module
-    lower_jaxpr_to_fun(
-  File "/home/jasonb/py_venv/lib/python3.10/site-packages/jax/interpreters/mlir.py", line 810, in lower_jaxpr_to_fun
-    out_vals, tokens_out = jaxpr_subcomp(ctx.replace(name_stack=callee_name_stack),
-  File "/home/jasonb/py_venv/lib/python3.10/site-packages/jax/interpreters/mlir.py", line 923, in jaxpr_subcomp
-    effects = [eff for eff in eqn.effects if eff in core.ordered_effects]
-  File "/home/jasonb/py_venv/lib/python3.10/site-packages/jax/interpreters/mlir.py", line 923, in <listcomp>
-    effects = [eff for eff in eqn.effects if eff in core.ordered_effects]
-KeyboardInterrupt
+  File "/local/scratch-3/jrb239/.conda/envs/tflow-jax-flax/lib/python3.9/site-packages/jax/interpreters/pxla.py", line 1570, in __call__
+    out_bufs = self.xla_executable.execute_sharded_on_local_devices(input_bufs)
+jax._src.traceback_util.UnfilteredStackTrace: jaxlib.xla_extension.XlaRuntimeError: INTERNAL: external/org_tensorflow/tensorflow/compiler/xla/service/gpu/nccl_utils.cc:342: NCCL operation ncclCommInitRank(comm.get(), nranks, id, rank) failed: unhandled cuda error: while running replica 0 and partition 0 of a replicated computation (other replicas may have failed as well).
+
+The stack trace below excludes JAX-internal frames.
+The preceding is the original exception that occurred, unmodified.
+
+--------------------
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/local/scratch-3/jrb239/long-range-arena-linen/lra_benchmarks/text_classification/train.py", line 304, in <module>
+    app.run(main)
+  File "/local/scratch-3/jrb239/.conda/envs/tflow-jax-flax/lib/python3.9/site-packages/absl/app.py", line 312, in run
+    _run_main(main, args)
+  File "/local/scratch-3/jrb239/.conda/envs/tflow-jax-flax/lib/python3.9/site-packages/absl/app.py", line 258, in _run_main
+    sys.exit(main(argv))
+  File "/local/scratch-3/jrb239/long-range-arena-linen/lra_benchmarks/text_classification/train.py", line 257, in main
+    t_state, metrics, dropout_rngs = p_train_step(t_state, batch,
+jaxlib.xla_extension.XlaRuntimeError: INTERNAL: external/org_tensorflow/tensorflow/compiler/xla/service/gpu/nccl_utils.cc:342: NCCL operation ncclCommInitRank(comm.get(), nranks, id, rank) failed: unhandled cuda error: while running replica 0 and partition 0 of a replicated computation (other replicas may have failed as well).
+2022-06-28 11:52:38.276508: E external/org_tensorflow/tensorflow/stream_executor/cuda/cuda_driver.cc:1047] could not synchronize on CUDA context: CUDA_ERROR_ILLEGAL_ADDRESS: an illegal memory access was encountered :: *** Begin stack trace ***
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	_PyDict_DelItem_KnownHash
+	_PyEval_EvalFrameDefault
+	
+	_PyFunction_Vectorcall
+	
+	
+	
+	PyObject_ClearWeakRefs
+	
+	
+	_PyModule_ClearDict
+	
+	Py_FinalizeEx
+	Py_RunMain
+	Py_BytesMain
+	__libc_start_main
+	
+*** End stack trace ***
+
+2022-06-28 11:52:38.276758: F external/org_tensorflow/tensorflow/compiler/xla/service/gpu/gpu_executable.cc:284] Check failed: pair.first->SynchronizeAllActivity() 
+Fatal Python error: Aborted
+
+Current thread 0x00007fd0ec695180 (most recent call first):
+  File "/local/scratch-3/jrb239/.conda/envs/tflow-jax-flax/lib/python3.9/weakref.py", line 377 in remove
+Aborted (core dumped)
+2022-06-28 18:48:49.489845: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcublas.so.11'; dlerror: libcublas.so.11: cannot open shared object file: No such file or directory
+2022-06-28 18:48:49.495600: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcublasLt.so.11'; dlerror: libcublasLt.so.11: cannot open shared object file: No such file or directory
+2022-06-28 18:48:49.495737: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcufft.so.10'; dlerror: libcufft.so.10: cannot open shared object file: No such file or directory
+2022-06-28 18:48:49.495874: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcurand.so.10'; dlerror: libcurand.so.10: cannot open shared object file: No such file or directory
+2022-06-28 18:48:49.495988: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcusolver.so.11'; dlerror: libcusolver.so.11: cannot open shared object file: No such file or directory
+2022-06-28 18:48:49.496118: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcusparse.so.11'; dlerror: libcusparse.so.11: cannot open shared object file: No such file or directory
+2022-06-28 18:48:49.496230: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcudnn.so.8'; dlerror: libcudnn.so.8: cannot open shared object file: No such file or directory
+2022-06-28 18:48:49.496277: W tensorflow/core/common_runtime/gpu/gpu_device.cc:1850] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+Skipping registering GPU devices...
+I0628 18:48:49.496754 139870975518528 train.py:134] ===========Config Dict============
+I0628 18:48:49.497204 139870975518528 train.py:135] batch_size: 32
+checkpoint_freq: 10000
+classifier_pool: CLS
+emb_dim: 256
+eval_frequency: 100
+factors: constant * linear_warmup * rsqrt_decay
+learning_rate: 0.05
+max_eval_target_length: 200
+max_length: 1000
+max_predict_token_length: 50
+max_target_length: 200
+mlp_dim: 1024
+model_type: transformer
+num_data_entries: null
+num_eval_steps: -1
+num_heads: 4
+num_layers: 4
+num_train_steps: 20000
+prompt: ''
+qkv_dim: 256
+random_seed: 0
+restore_checkpoints: true
+sampling_temperature: 0.6
+sampling_top_k: 20
+save_checkpoints: true
+trial: 0
+warmup: 8000
+weight_decay: 0.1
+
+I0628 18:48:49.507042 139870975518528 xla_bridge.py:340] Unable to initialize backend 'tpu_driver': NOT_FOUND: Unable to find driver in registry given worker: 
+I0628 18:48:50.732371 139870975518528 xla_bridge.py:340] Unable to initialize backend 'rocm': NOT_FOUND: Could not find registered platform with name: "rocm". Available platform names are: Interpreter CUDA Host
+I0628 18:48:50.733016 139870975518528 xla_bridge.py:340] Unable to initialize backend 'tpu': module 'jaxlib.xla_extension' has no attribute 'get_tpu_client'
+I0628 18:48:50.761528 139870975518528 dataset_info.py:491] Load dataset info from ./tf_datasets/yelp_polarity_reviews/0.2.0
+I0628 18:48:50.765022 139870975518528 dataset_builder.py:383] Reusing dataset yelp_polarity_reviews (./tf_datasets/yelp_polarity_reviews/0.2.0)
+I0628 18:48:50.765171 139870975518528 logging_logger.py:44] Constructing tf.data.Dataset yelp_polarity_reviews for split None, from ./tf_datasets/yelp_polarity_reviews/0.2.0
+I0628 18:48:50.959510 139870975518528 input_pipeline.py:64] Data sample: {'label': 1, 'text': b'A large selection of food from all over the world. Great atmosphere and ambiance.  Quality of food is on par with a 5 star hotel. But did not have lobster and king crab that I was expecting for this kind of price.'}
+INFO:tensorflow:Train/val/test dataset sizes: 560000, 38000, 38000
+I0628 18:48:51.004660 139870975518528 input_pipeline.py:134] Train/val/test dataset sizes: 560000, 38000, 38000
+INFO:tensorflow:Finished preprocessing
+I0628 18:48:51.004970 139870975518528 input_pipeline.py:135] Finished preprocessing
+INFO:tensorflow:<MapDataset element_spec={'Source': TensorSpec(shape=(), dtype=tf.string, name=None), 'Target': TensorSpec(shape=(), dtype=tf.int64, name=None)}>
+I0628 18:48:51.005075 139870975518528 input_pipeline.py:136] <MapDataset element_spec={'Source': TensorSpec(shape=(), dtype=tf.string, name=None), 'Target': TensorSpec(shape=(), dtype=tf.int64, name=None)}>
+I0628 18:48:51.005331 139870975518528 input_pipeline.py:139] Using char/byte level vocab
+I0628 18:48:51.141526 139870975518528 train.py:163] Vocab Size: 257
+2022-06-28 18:48:51.508737: E external/org_tensorflow/tensorflow/stream_executor/cuda/cuda_asm_compiler.cc:57] cuLinkAddData fails. This is usually caused by stale driver version.
+2022-06-28 18:48:51.508871: E external/org_tensorflow/tensorflow/compiler/xla/service/gpu/gpu_compiler.cc:1334] The CUDA linking API did not work. Please use XLA_FLAGS=--xla_gpu_force_compilation_parallelism=1 to bypass it, but expect to get longer compilation time due to the lack of multi-threading.
+Traceback (most recent call last):
+  File "/local/scratch-3/jrb239/long-range-arena-linen/lra_benchmarks/text_classification/train.py", line 304, in <module>
+    app.run(main)
+  File "/local/scratch-3/jrb239/.conda/envs/jax/lib/python3.10/site-packages/absl/app.py", line 312, in run
+    _run_main(main, args)
+  File "/local/scratch-3/jrb239/.conda/envs/jax/lib/python3.10/site-packages/absl/app.py", line 258, in _run_main
+    sys.exit(main(argv))
+  File "/local/scratch-3/jrb239/long-range-arena-linen/lra_benchmarks/text_classification/train.py", line 183, in main
+    rng = random.PRNGKey(random_seed)
+  File "/local/scratch-3/jrb239/.conda/envs/jax/lib/python3.10/site-packages/jax/_src/random.py", line 125, in PRNGKey
+    key = prng.seed_with_impl(impl, seed)
+  File "/local/scratch-3/jrb239/.conda/envs/jax/lib/python3.10/site-packages/jax/_src/prng.py", line 237, in seed_with_impl
+    return PRNGKeyArray(impl, impl.seed(seed))
+  File "/local/scratch-3/jrb239/.conda/envs/jax/lib/python3.10/site-packages/jax/_src/prng.py", line 276, in threefry_seed
+    lax.shift_right_logical(seed_arr, lax_internal._const(seed_arr, 32)))
+  File "/local/scratch-3/jrb239/.conda/envs/jax/lib/python3.10/site-packages/jax/_src/lax/lax.py", line 444, in shift_right_logical
+    return shift_right_logical_p.bind(x, y)
+  File "/local/scratch-3/jrb239/.conda/envs/jax/lib/python3.10/site-packages/jax/core.py", line 327, in bind
+    return self.bind_with_trace(find_top_trace(args), args, params)
+  File "/local/scratch-3/jrb239/.conda/envs/jax/lib/python3.10/site-packages/jax/core.py", line 330, in bind_with_trace
+    out = trace.process_primitive(self, map(trace.full_raise, args), params)
+  File "/local/scratch-3/jrb239/.conda/envs/jax/lib/python3.10/site-packages/jax/core.py", line 680, in process_primitive
+    return primitive.impl(*tracers, **params)
+  File "/local/scratch-3/jrb239/.conda/envs/jax/lib/python3.10/site-packages/jax/_src/dispatch.py", line 99, in apply_primitive
+    compiled_fun = xla_primitive_callable(prim, *unsafe_map(arg_spec, args),
+  File "/local/scratch-3/jrb239/.conda/envs/jax/lib/python3.10/site-packages/jax/_src/util.py", line 219, in wrapper
+    return cached(config._trace_context(), *args, **kwargs)
+  File "/local/scratch-3/jrb239/.conda/envs/jax/lib/python3.10/site-packages/jax/_src/util.py", line 212, in cached
+    return f(*args, **kwargs)
+  File "/local/scratch-3/jrb239/.conda/envs/jax/lib/python3.10/site-packages/jax/_src/dispatch.py", line 164, in xla_primitive_callable
+    compiled = _xla_callable_uncached(lu.wrap_init(prim_fun), device, None,
+  File "/local/scratch-3/jrb239/.conda/envs/jax/lib/python3.10/site-packages/jax/_src/dispatch.py", line 246, in _xla_callable_uncached
+    keep_unused, *arg_specs).compile().unsafe_call
+  File "/local/scratch-3/jrb239/.conda/envs/jax/lib/python3.10/site-packages/jax/_src/dispatch.py", line 798, in compile
+    self._executable = XlaCompiledComputation.from_xla_computation(
+  File "/local/scratch-3/jrb239/.conda/envs/jax/lib/python3.10/site-packages/jax/_src/dispatch.py", line 901, in from_xla_computation
+    compiled = compile_or_get_cached(backend, xla_computation, options)
+  File "/local/scratch-3/jrb239/.conda/envs/jax/lib/python3.10/site-packages/jax/_src/dispatch.py", line 862, in compile_or_get_cached
+    return backend_compile(backend, computation, compile_options)
+  File "/local/scratch-3/jrb239/.conda/envs/jax/lib/python3.10/site-packages/jax/_src/profiler.py", line 312, in wrapper
+    return func(*args, **kwargs)
+  File "/local/scratch-3/jrb239/.conda/envs/jax/lib/python3.10/site-packages/jax/_src/dispatch.py", line 808, in backend_compile
+    return backend.compile(built_c, compile_options=options)
+jaxlib.xla_extension.XlaRuntimeError: UNKNOWN: no kernel image is available for execution on the device
+in external/org_tensorflow/tensorflow/stream_executor/cuda/cuda_asm_compiler.cc(60): 'status'
