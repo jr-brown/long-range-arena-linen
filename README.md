@@ -2,10 +2,11 @@
 
 This is a fork of google's long-range arena that aims to update it to use the latest version of flax, which now uses linen instead of nn (amongst other things). I am primarily using https://flax.readthedocs.io/en/latest/howtos/linen_upgrade_guide.html#defining-simple-modules as a guide.
 
-Status: Runs for transformer_base with text_classification CPU
+Status: Runs for transformer_base with text_classification on CPU
 
-Changes to original codebase functionality:
-* Removed cache that was used for 'efficient autoregressive decoding' due to the mechanisms used not being present / been moved in latest flax version
+### Changes to original codebase functionality
+* Removed cache that was used for 'efficient autoregressive decoding' due to the mechanisms used not being present / been moved in latest flax version, should be able to re-implement this behaviour with the decode options if needed
+* Removed 'inputs_segmentation' as they were not referenced outside of models and not implemented for all heads in the new flax version
 
 
 ## Long-Range Arena (LRA: pronounced ELRA).

@@ -31,10 +31,10 @@ class TransformerBlock(nn.Module):
     padding_mask: Any=None
     dropout_rate: Any=0.1
     attention_dropout_rate: Any=0.1
-    deterministic: bool=False
 
     @nn.compact
-    def __call__(self, inputs, inputs_segmentation=None):
+    def __call__(self, inputs, *, causal_mask: bool=False, padding_mask=None,
+                 deterministic: bool=False):
         """Applies TransformerBlock module.
 
         Args:
@@ -43,7 +43,6 @@ class TransformerBlock(nn.Module):
             mlp_dim: dimension of the mlp on top of attention block
             num_heads: number of heads
             dtype: the dtype of the computation (default: float32).
-            inputs_segmentation: input segmentation info for packed examples.
             causal_mask: bool, mask future or not
             padding_mask: bool, mask padding tokens
             dropout_rate: dropout rate
@@ -59,35 +58,32 @@ class TransformerBlock(nn.Module):
         assert inputs.ndim == 3
         x = nn.LayerNorm()(inputs)
 
-        # TODO: currently self.padding_mask.shape = (batch_size, length, 1)
-        # Need to make it (batch_size, num_heads, length, length)
-        # Note x.shape = (batch_size, length, features)
-        p_mask = self.padding_mask.reshape(self.padding_mask.shape[:-1])
+        # Converts padding_mask.shape from (batch_size, length, 1)
+        # to (batch_size, num_heads, length, length)
+        p_mask = padding_mask.reshape(padding_mask.shape[:-1])
         mask = nn.make_attention_mask(p_mask, p_mask)
 
-        if self.causal_mask:
+        if causal_mask:
             mask = nn.combine_masks(mask, nn.make_causal_mask(x))
 
         x = nn.SelfAttention(
                 num_heads=self.num_heads,
                 dtype=self.dtype,
                 qkv_features=self.qkv_dim,
-                # segmentation=inputs_segmentation,  # TODO: figure out what this was doing
                 kernel_init=jnn.initializers.xavier_uniform(),
                 bias_init=jnn.initializers.normal(stddev=1e-6),
                 # bias=False,  # Presumably this was unimportant 0_0
                 broadcast_dropout=False,
                 dropout_rate=self.attention_dropout_rate,
-                deterministic=self.deterministic
-        )(x, mask=mask)
-        x = nn.Dropout(rate=self.dropout_rate)(x, deterministic=self.deterministic)
+        )(x, deterministic=deterministic, mask=mask)
+        x = nn.Dropout(rate=self.dropout_rate)(x, deterministic=deterministic)
         x = x + inputs
 
         # MLP block.
         y = nn.LayerNorm()(x)
         y = common_layers.MlpBlock(
             mlp_dim=self.mlp_dim, dtype=self.dtype, dropout_rate=self.dropout_rate
-        )(y, deterministic=self.deterministic)
+        )(y, deterministic=deterministic)
 
         return x + y
 
@@ -115,19 +111,18 @@ class TransformerEncoder(nn.Module):
 
     def setup(self):
         if self.classifier and self.classifier_pool == 'CLS':
-            self.actual_max_len = self.max_len + 1
+            self._max_len = self.max_len + 1
         else:
-            self.actual_max_len = self.max_len
+            self._max_len = self.max_len
 
     @nn.compact
-    def __call__(self, inputs, inputs_positions=None, inputs_segmentation=None, train=True):
+    def __call__(self, inputs, inputs_positions=None, train=True):
         """Applies Transformer model on the inputs.
 
         Args:
             inputs: input data
             vocab_size: size of the vocabulary
             inputs_positions: input subsequence positions for packed examples.
-            inputs_segmentation: input segmentation info for packed examples.
             shared_embedding: a shared embedding layer to use.
             use_bfloat16: bool: whether use bfloat16.
             emb_dim: dimension of embedding
@@ -177,7 +172,7 @@ class TransformerEncoder(nn.Module):
         x = common_layers.AddPositionEmbs(
                 inputs_positions=inputs_positions,
                 posemb_init=pe_init,
-                max_len=self.actual_max_len,
+                max_len=self._max_len,
                 name='posembed_input')(x)
         x = nn.Dropout(rate=self.dropout_rate)(x, deterministic=not train)
 
@@ -194,13 +189,11 @@ class TransformerEncoder(nn.Module):
                     mlp_dim=self.mlp_dim,
                     num_heads=self.num_heads,
                     dtype=dtype,
-                    padding_mask=src_padding_mask,
                     dropout_rate=self.dropout_rate,
                     attention_dropout_rate=self.attention_dropout_rate,
-                    deterministic=not train,
                     name='encoderblock')
             for _ in range(self.num_layers):
-                x = encoder(x, inputs_segmentation=inputs_segmentation)
+                x = encoder(x, padding_mask=src_padding_mask, deterministic=not train)
         else:
             for lyr in range(self.num_layers):
                 x = TransformerBlock(
@@ -208,11 +201,10 @@ class TransformerEncoder(nn.Module):
                         mlp_dim=self.mlp_dim,
                         num_heads=self.num_heads,
                         dtype=dtype,
-                        padding_mask=src_padding_mask,
                         dropout_rate=self.dropout_rate,
                         attention_dropout_rate=self.attention_dropout_rate,
-                        deterministic=not train,
-                        name=f'encoderblock_{lyr}')(x, inputs_segmentation=inputs_segmentation)
+                        name=f'encoderblock_{lyr}'
+                )(x, padding_mask=src_padding_mask, deterministic=not train)
 
         encoded = nn.LayerNorm(dtype=dtype, name='encoder_norm')(x)
 
@@ -233,7 +225,6 @@ class TransformerDualEncoder(nn.Module):
     qkv_dim: Any=512
     mlp_dim: Any=2048
     max_len: Any=2048
-    train: Any=False
     dropout_rate: Any=0.1
     attention_dropout_rate: Any=0.1
     classifier: Any=True
@@ -243,7 +234,7 @@ class TransformerDualEncoder(nn.Module):
 
     @nn.compact
     def __call__(self, inputs1, inputs2, inputs1_positions=None, inputs2_positions=None,
-                 inputs1_segmentation=None, inputs2_segmentation=None):
+                 train: bool=False):
         """Applies Transformer model on text similarity.
 
         A deliberate choice to distinguish this from NLI because
@@ -256,8 +247,6 @@ class TransformerDualEncoder(nn.Module):
             vocab_size: size of the input vocabulary.
             inputs1_positions: input subsequence positions for packed examples.
             inputs2_positions: target subsequence positions for packed examples.
-            inputs1_segmentation: input segmentation info for packed examples.
-            inputs2_segmentation: target segmentation info for packed examples.
             use_bfloat16: bool: whether use bfloat16.
             emb_dim: dimension of embedding.
             num_heads: number of heads.
@@ -286,18 +275,17 @@ class TransformerDualEncoder(nn.Module):
                 qkv_dim=self.qkv_dim,
                 mlp_dim=self.mlp_dim,
                 max_len=self.max_len,
-                train=self.train,
                 dropout_rate=self.dropout_rate,
                 attention_dropout_rate=self.attention_dropout_rate,
                 name='encoder')
         inputs1_encoded = encoder(
                 inputs=inputs1,
                 inputs_positions=inputs1_positions,
-                inputs_segmentation=inputs1_segmentation)
+                train=train)
         inputs2_encoded = encoder(
                 inputs=inputs2,
                 inputs_positions=inputs2_positions,
-                inputs_segmentation=inputs2_segmentation)
+                train=train)
 
         encoded = common_layers.classifier_head_dual(
                 inputs1_encoded,
