@@ -2,12 +2,28 @@
 
 This is a fork of google's long-range arena that aims to update it to use the latest version of flax, which now uses linen instead of nn (amongst other things). I am primarily using https://flax.readthedocs.io/en/latest/howtos/linen_upgrade_guide.html#defining-simple-modules as a guide.
 
-Status: Runs for transformer_base with text_classification on CPU
+Status: Runs for transformer_base with text_classification on CPU & GPU though unverified if it trains the model properly at the moment
 
-### Changes to original codebase functionality
+## Dependancy Installation
+
+### CPU
+* python3 -m pip install -r requirements.txt
+
+### GPU
+* conda create --name env_name --file conda_env.txt
+* conda activate env_name
+* python3 -m pip install -r pip_extra_reqs.txt
+
+### Testing
+* Run test_setup.sh, it should do 20 trainig steps with some eval in the middle and then stop
+* Ignore any GPU related errors from tensorflow, only jax needs to use the gpu
+
+## Changes to original codebase functionality
 * Removed cache that was used for 'efficient autoregressive decoding' due to the mechanisms used not being present / been moved in latest flax version, should be able to re-implement this behaviour with the decode options if needed
 * Removed 'inputs_segmentation' as they were not referenced outside of models and not implemented for all heads in the new flax version
 
+
+# Original README
 
 ## Long-Range Arena (LRA: pronounced ELRA).
 
