@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Transformer model."""
-from functools import partial
 from lra_benchmarks.models.layers import common_layers
 from typing import Any
 
@@ -32,7 +31,6 @@ class TransformerBlock(nn.Module):
     padding_mask: Any=None
     dropout_rate: Any=0.1
     attention_dropout_rate: Any=0.1
-    cache: Any=None
     deterministic: bool=False
 
     @nn.compact
@@ -51,7 +49,6 @@ class TransformerBlock(nn.Module):
             dropout_rate: dropout rate
             attention_dropout_rate: dropout rate for attention weights
             deterministic: bool, deterministic or not (to apply dropout)
-            cache: flax autoregressive cache for fast decoding.
 
         Returns:
             output after transformer block.
@@ -81,7 +78,6 @@ class TransformerBlock(nn.Module):
                 # bias=False,  # Presumably this was unimportant 0_0
                 broadcast_dropout=False,
                 dropout_rate=self.attention_dropout_rate,
-                # cache=self.cache  # And this
                 deterministic=self.deterministic
         )(x, mask=mask)
         x = nn.Dropout(rate=self.dropout_rate)(x, deterministic=self.deterministic)

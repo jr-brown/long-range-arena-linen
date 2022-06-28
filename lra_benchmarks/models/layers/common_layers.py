@@ -88,7 +88,6 @@ class AddPositionEmbs(nn.Module):
     inputs_positions: Any=None
     max_len: int=512
     posemb_init: Any=None
-    cache: Any=None
 
     @nn.compact
     def __call__(self, inputs):
@@ -104,7 +103,6 @@ class AddPositionEmbs(nn.Module):
             max_len: maximum possible length for the input.
             posemb_init: positional embedding initializer, if None, then use a
                 fixed (non-learned) sinusoidal embedding table.
-            cache: flax attention cache for fast decoding.
 
         Returns:
             output: `(bs, timesteps, in_dim)`
@@ -121,21 +119,7 @@ class AddPositionEmbs(nn.Module):
         else:
             pos_embedding = self.param('pos_embedding', self.posemb_init, self.pos_emb_shape)
         pe = pos_embedding[:, :length, :]
-        # We abuse the same attention Cache mechanism to run positional embeddings
-        # in fast predict mode. We could use state variables instead, but this
-        # simplifies invocation with a single top-level cache context manager.
-        # We only use the cache's position index for tracking decoding position.
-        if self.cache:
-            if self.is_initializing():
-                self.cache.store(np.array((4, 1, 1), dtype=np.int32))
-            else:
-                cache_entry = self.cache.retrieve(None)
-                i = cache_entry.i
-                self.cache.store(cache_entry.replace(i=cache_entry.i + 1))
-                _, _, df = pos_embedding.shape
-                pe = lax.dynamic_slice(pos_embedding,
-                                                              jnp.array((0, i, 0)),
-                                                              jnp.array((1, 1, df)))
+
         if self.inputs_positions is None:
             # normal unpacked case:
             return inputs + pe
