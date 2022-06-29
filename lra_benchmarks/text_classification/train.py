@@ -22,14 +22,12 @@ from absl import app
 from absl import flags
 from absl import logging
 from flax import jax_utils
-from flax import linen as nn
 from flax.metrics import tensorboard
 from flax.training import checkpoints, common_utils, train_state
 import optax
 import jax
 from jax import random
 from jax.tree_util import tree_map
-import jax.nn as jnn
 import jax.numpy as jnp
 
 from lra_benchmarks.text_classification import input_pipeline

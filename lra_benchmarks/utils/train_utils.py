@@ -19,7 +19,7 @@ import jax.numpy as jnp
 # from lra_benchmarks.models.bigbird import bigbird
 # from lra_benchmarks.models.linear_transformer import linear_transformer
 # from lra_benchmarks.models.linformer import linformer
-# from lra_benchmarks.models.local import local
+from lra_benchmarks.models.local import local
 # from lra_benchmarks.models.longformer import longformer
 # from lra_benchmarks.models.performer import performer
 # from lra_benchmarks.models.reformer import reformer
@@ -58,9 +58,9 @@ def get_model(model_type, create_model_fn, model_kwargs, *create_model_args):
 #   elif model_type == 'linformer':
 #     return create_model_fn(linformer.LinformerEncoder, model_kwargs,
 #                            *create_model_args)
-#   elif model_type == 'local':
-#     return create_model_fn(local.LocalTransformerEncoder, model_kwargs,
-#                            *create_model_args)
+  elif model_type == 'local':
+    return create_model_fn(local.LocalTransformerEncoder, model_kwargs,
+                            *create_model_args)
 #   elif model_type == 'bigbird':
 #     return create_model_fn(bigbird.BigBirdEncoder, model_kwargs,
 #                            *create_model_args)

@@ -11,27 +11,28 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Transformer model."""
-from lra_benchmarks.models.layers import common_layers
+"""Local Attention Transformer models."""
+from functools import partial
 from typing import Any
 
-import flax.linen as nn
+from flax import linen as nn
 import jax.numpy as jnp
 import jax.nn as jnn
 
+from lra_benchmarks.models.layers import common_layers
+from lra_benchmarks.models.local import local_attention
 
-class TransformerBlock(nn.Module):
+
+class LocalTransformerBlock(nn.Module):
     """Transformer layer (https://openreview.net/forum?id=H1e5GJBtDr)."""
 
     qkv_dim: Any
     mlp_dim: Any
     num_heads: Any
     dtype: Any=jnp.float32
-    causal_mask: Any=False
-    padding_mask: Any=None
     dropout_rate: Any=0.1
     attention_dropout_rate: Any=0.1
-    decode: bool=False
+    block_size: Any=50
 
     @nn.compact
     def __call__(self, inputs, *, causal_mask: bool=False, padding_mask=None,
@@ -45,11 +46,11 @@ class TransformerBlock(nn.Module):
             num_heads: number of heads
             dtype: the dtype of the computation (default: float32).
             causal_mask: bool, mask future or not
-            padding_mask: bool array, mask padding tokens
+            padding_mask: bool, mask padding tokens
             dropout_rate: dropout rate
             attention_dropout_rate: dropout rate for attention weights
-            decode: bool, whether or not we're decoding (originally cache)
             deterministic: bool, deterministic or not (to apply dropout)
+            block_size: int, block size.
 
         Returns:
             output after transformer block.
@@ -58,59 +59,51 @@ class TransformerBlock(nn.Module):
 
         # Attention block.
         assert inputs.ndim == 3
-        x = nn.LayerNorm()(inputs)
-
-        # Converts padding_mask.shape from (batch_size, length, 1)
-        # to (batch_size, num_heads, length, length)
-        p_mask = padding_mask.reshape(padding_mask.shape[:-1])
-        mask = nn.make_attention_mask(p_mask, p_mask)
-
-        if causal_mask:
-            mask = nn.combine_masks(mask, nn.make_causal_mask(x))
-
-        x = nn.SelfAttention(
+        x = nn.LayerNorm(inputs)
+        x = local_attention.LocalSelfAttention(
                 num_heads=self.num_heads,
                 dtype=self.dtype,
                 qkv_features=self.qkv_dim,
                 kernel_init=jnn.initializers.xavier_uniform(),
                 bias_init=jnn.initializers.normal(stddev=1e-6),
-                use_bias=False,
+                bias=False,
                 broadcast_dropout=False,
                 dropout_rate=self.attention_dropout_rate,
-                decode=self.decode
-        )(x, deterministic=deterministic, mask=mask)
+                block_size=self.block_size
+        )(x, causal_mask=causal_mask, padding_mask=padding_mask, deterministic=deterministic)
         x = nn.Dropout(rate=self.dropout_rate)(x, deterministic=deterministic)
         x = x + inputs
 
         # MLP block.
-        y = nn.LayerNorm()(x)
+        y = nn.LayerNorm(x)
         y = common_layers.MlpBlock(
-            mlp_dim=self.mlp_dim, dtype=self.dtype, dropout_rate=self.dropout_rate
+                mlp_dim=self.mlp_dim,
+                dtype=self.dtype,
+                dropout_rate=self.dropout_rate,
         )(y, deterministic=deterministic)
 
         return x + y
 
 
-class TransformerEncoder(nn.Module):
-    """Transformer Model Encoder."""
+class LocalTransformerEncoder(nn.Module):
+    """Local Transformer Encoder."""
 
     vocab_size: Any
     shared_embedding: Any=None
     use_bfloat16: Any=False
     emb_dim: Any=512
     num_heads: Any=8
-    dtype: Any=jnp.float32
     num_layers: Any=6
     qkv_dim: Any=512
     mlp_dim: Any=2048
     max_len: Any=512
     dropout_rate: Any=0.1
     attention_dropout_rate: Any=0.1
+    block_size: Any=50
     learn_pos_emb: Any=False
     classifier: Any=False
     classifier_pool: Any='CLS'
     num_classes: Any=10
-    tied_weights: Any=False
 
     def setup(self):
         if self.classifier and self.classifier_pool == 'CLS':
@@ -120,7 +113,7 @@ class TransformerEncoder(nn.Module):
 
     @nn.compact
     def __call__(self, inputs, inputs_positions=None, train=True):
-        """Applies Transformer model on the inputs.
+        """Applies Local Transformer model on the inputs.
 
         Args:
             inputs: input data
@@ -130,7 +123,6 @@ class TransformerEncoder(nn.Module):
             use_bfloat16: bool: whether use bfloat16.
             emb_dim: dimension of embedding
             num_heads: number of heads
-            dtype: the dtype of the computation (default: float32)
             num_layers: number of layers
             qkv_dim: dimension of the query/key/value
             mlp_dim: dimension of the mlp on top of attention block
@@ -138,15 +130,15 @@ class TransformerEncoder(nn.Module):
             train: if it is training,
             dropout_rate: dropout rate
             attention_dropout_rate: dropout rate for attention weights
+            block_size: int, block size.
             learn_pos_emb: boolean, if learn the positional embedding or use the
                 sinusoidal positional embedding.
             classifier: boolean, for classification mode (output N-class logits)
             classifier_pool: str, supports "MEAN", "MAX" pooling.
             num_classes: int, number of classification classes.
-            tied_weights: bool, to tie weights or not.
 
         Returns:
-            output of a transformer encoder or logits if classifier_mode is true.
+            output of a transformer encoder.
         """
         assert inputs.ndim == 2  # (batch, len)
 
@@ -155,7 +147,7 @@ class TransformerEncoder(nn.Module):
 
         # Input Embedding
         if self.shared_embedding is None:
-            input_embed = nn.Embed(
+            input_embed = partial(nn.Embed,
                     num_embeddings=self.vocab_size,
                     features=self.emb_dim,
                     embedding_init=jnn.initializers.normal(stddev=1.0))
@@ -173,10 +165,11 @@ class TransformerEncoder(nn.Module):
 
         pe_init = jnn.initializers.normal(stddev=0.02) if self.learn_pos_emb else None
         x = common_layers.AddPositionEmbs(
+                x,
                 inputs_positions=inputs_positions,
                 posemb_init=pe_init,
                 max_len=self._max_len,
-                name='posembed_input')(x)
+                name='posembed_input')
         x = nn.Dropout(rate=self.dropout_rate)(x, deterministic=not train)
 
         if self.use_bfloat16:
@@ -186,30 +179,20 @@ class TransformerEncoder(nn.Module):
             dtype = jnp.float32
 
         # Input Encoder
-        if self.tied_weights:
-            encoder = TransformerBlock(
+        for lyr in range(self.num_layers):
+            x = LocalTransformerBlock(
+                    x,
                     qkv_dim=self.qkv_dim,
                     mlp_dim=self.mlp_dim,
                     num_heads=self.num_heads,
                     dtype=dtype,
+                    padding_mask=src_padding_mask,
                     dropout_rate=self.dropout_rate,
                     attention_dropout_rate=self.attention_dropout_rate,
-                    name='encoderblock')
-            for _ in range(self.num_layers):
-                x = encoder(x, padding_mask=src_padding_mask, deterministic=not train)
-        else:
-            for lyr in range(self.num_layers):
-                x = TransformerBlock(
-                        qkv_dim=self.qkv_dim,
-                        mlp_dim=self.mlp_dim,
-                        num_heads=self.num_heads,
-                        dtype=dtype,
-                        dropout_rate=self.dropout_rate,
-                        attention_dropout_rate=self.attention_dropout_rate,
-                        name=f'encoderblock_{lyr}'
-                )(x, padding_mask=src_padding_mask, deterministic=not train)
-
-        encoded = nn.LayerNorm(dtype=dtype, name='encoder_norm')(x)
+                    deterministic=not train,
+                    name=f'encoderblock_{lyr}',
+                    block_size=self.block_size)
+        encoded = nn.LayerNorm(x, dtype=dtype, name='encoder_norm')
 
         if self.classifier:
             encoded = common_layers.classifier_head(
@@ -217,7 +200,7 @@ class TransformerEncoder(nn.Module):
         return encoded
 
 
-class TransformerDualEncoder(nn.Module):
+class LocalTransformerDualEncoder(nn.Module):
     """Transformer Model for Matching (dual encoding) tasks."""
 
     vocab_size: Any=None
@@ -269,7 +252,7 @@ class TransformerDualEncoder(nn.Module):
             output of a transformer decoder.
         """
 
-        encoder = TransformerEncoder(
+        encoder = LocalTransformerEncoder(
                 vocab_size=self.vocab_size,
                 use_bfloat16=self.use_bfloat16,
                 emb_dim=self.emb_dim,
@@ -299,3 +282,70 @@ class TransformerDualEncoder(nn.Module):
                 interaction=self.interaction)
 
         return encoded
+
+
+class LocalTransformerDecoder(nn.Module):
+    """Local Transformer Decoder."""
+
+    vocab_size: Any
+    emb_dim: Any=512
+    num_heads: Any=8
+    num_layers: Any=6
+    qkv_dim: Any=512
+    mlp_dim: Any=2048
+    max_len: Any=2048
+    shift: Any=True
+    dropout_rate: Any=0.1
+    attention_dropout_rate: Any=0.1
+    block_size: Any=50
+
+    @nn.compact
+    def __call__(self, inputs, train: bool=False):
+        """Applies Local Attention model on the inputs.
+
+        Args:
+            inputs: input data
+            vocab_size: size of the vocabulary
+            emb_dim: dimension of embedding
+            num_heads: number of heads
+            num_layers: number of layers
+            qkv_dim: dimension of the query/key/value
+            mlp_dim: dimension of the mlp on top of attention block
+            max_len: maximum length.
+            train: bool: if model is training.
+            shift: bool: if we right-shift input - this is only disabled for
+                fast, looped single-token autoregressive decoding.
+            dropout_rate: dropout rate
+            attention_dropout_rate: dropout rate for attention weights
+            block_size: int, block size
+
+        Returns:
+            output of a transformer decoder.
+        """
+        padding_mask = jnp.where(inputs > 0, 1, 0).astype(jnp.float32)[..., None]
+        assert inputs.ndim == 2  # (batch, len)
+        x = inputs
+        if self.shift:
+            raise NotImplementedError
+            # x = common_layers.shift_right(x)
+        x = x.astype('int32')
+        x = common_layers.Embed(num_embeddings=self.vocab_size, features=self.emb_dim, name='embed')(x)
+        x = common_layers.AddPositionEmbs(
+                max_len=self.max_len,
+                posemb_init=common_layers.sinusoidal_init(max_len=self.max_len))(x)
+        x = nn.Dropout(rate=self.dropout_rate)(x, deterministic=not train)
+        for _ in range(self.num_layers):
+            x = LocalTransformerBlock(
+                    qkv_dim=self.qkv_dim,
+                    mlp_dim=self.mlp_dim,
+                    num_heads=self.num_heads,
+                    dropout_rate=self.dropout_rate,
+                    attention_dropout_rate=self.attention_dropout_rate,
+                    block_size=self.block_size
+            )(x, causal_mask=True, padding_mask=padding_mask, deterministic=not train)
+        x = nn.LayerNorm(x)
+        logits = nn.Dense(
+                self.vocab_size,
+                kernel_init=jnn.initializers.xavier_uniform(),
+                bias_init=jnn.initializers.normal(stddev=1e-6))(x)
+        return logits

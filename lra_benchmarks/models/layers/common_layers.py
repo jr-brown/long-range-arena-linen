@@ -14,7 +14,6 @@
 # Lint as: python3
 """Common layers used in models."""
 from typing import Any
-from jax import lax
 
 import flax.linen as nn
 import jax.numpy as jnp

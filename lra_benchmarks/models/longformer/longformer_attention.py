@@ -23,6 +23,7 @@ from functools import partial
 from flax import linen as nn
 from jax import lax
 import jax.numpy as jnp
+import jax.nn as jnn
 import numpy as np
 
 
@@ -97,30 +98,17 @@ def _get_attention_result(query,
   if padding_mask is not None:
     if key_padding_mask is None:
       key_padding_mask = padding_mask
-    padding_mask = nn.attention.make_padding_mask(
-        padding_mask_query=padding_mask,
-        padding_mask_key=key_padding_mask,
-        query_shape=query.shape,
-        key_shape=key.shape,
-        attention_axis=(1,))
+    padding_mask = nn.make_attention_mask(padding_mask, key_padding_mask)
     mask_components.append(padding_mask)
 
   if segmentation is not None:
     if key_segmentation is None:
       key_segmentation = segmentation
-    segmentation_mask = nn.attention.make_padding_mask(
-        padding_mask_query=segmentation,
-        padding_mask_key=key_segmentation,
-        query_shape=query.shape,
-        key_shape=key.shape,
-        attention_axis=(1,),
-        segmentation_mask=True)
+    segmentation_mask = nn.make_attention_mask(segmentation, key_segmentation)
     mask_components.append(segmentation_mask)
 
   if mask_components:
-    attention_mask = mask_components[0]
-    for component in mask_components[1:]:
-      attention_mask = jnp.logical_and(attention_mask, component)
+    attention_mask = nn.combine_masks(*mask_components)
 
     # attention mask in the form of attention bias
     attention_bias = lax.select(
@@ -130,12 +118,11 @@ def _get_attention_result(query,
   else:
     attention_bias = None
 
-  return nn.attention.dot_product_attention(
+  return nn.dot_product_attention(
       query,
       key,
       value,
       dtype=dtype,
-      axis=1,
       bias=attention_bias,
       precision=precision,
       dropout_rng=dropout_rng,
@@ -167,7 +154,7 @@ class LongformerAttention(nn.Module):
             deterministic=False,
             precision=None,
             kernel_init=nn.linear.default_kernel_init,
-            bias_init=nn.initializers.zeros,
+            bias_init=jnn.initializers.zeros,
             bias=True):
     """Applies longformer multi-head dot product attention on the input data.
 
@@ -288,4 +275,4 @@ class LongformerAttention(nn.Module):
     return out
 
 
-LongformerSelfAttention = partial(LongformerAttention,inputs_kv=None)
+LongformerSelfAttention = partial(LongformerAttention, inputs_kv=None)
