@@ -20,7 +20,7 @@ from lra_benchmarks.text_classification.configs import base_tc_config
 def get_config():
   """Get the default hyperparameter configuration."""
   config = base_tc_config.get_config()
-  config.batch_size = 4
+  config.batch_size = 32
   config.eval_frequency = 10
   config.num_train_steps = 20
   config.num_heads = 2

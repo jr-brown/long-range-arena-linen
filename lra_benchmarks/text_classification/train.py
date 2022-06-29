@@ -31,8 +31,11 @@ from jax import random
 from jax.tree_util import tree_map
 import jax.nn as jnn
 import jax.numpy as jnp
+
 from lra_benchmarks.text_classification import input_pipeline
 from lra_benchmarks.utils import train_utils
+from lra_benchmarks.utils.device_utils import get_devices, shard
+
 from ml_collections import config_flags
 import tensorflow.compat.v2 as tf
 
@@ -84,9 +87,6 @@ def compute_metrics(logits, labels, weights):
 
 
 def train_step(t_state, batch, dropout_rng=None):
-
-    # CONVERSION NEEDED FOR THIS FUNCTION
-
     """Perform a single training step."""
     train_keys = ['inputs', 'targets']
     (inputs, targets) = [batch.get(k, None) for k in train_keys]
@@ -140,6 +140,9 @@ def main(argv):
     eval_freq = config.eval_frequency
     random_seed = config.random_seed
     model_type = config.model_type
+    devices = get_devices(config.available_devices)
+
+    logging.info(f"GPU devices: {devices}")
 
     max_length = config.max_length
 
@@ -147,11 +150,11 @@ def main(argv):
         summary_writer = tensorboard.SummaryWriter(
                 os.path.join(FLAGS.model_dir, 'summary'))
 
-    if batch_size % jax.device_count() > 0:
+    if batch_size % len(devices) > 0:
         raise ValueError('Batch size must be divisible by the number of devices')
 
     train_ds, eval_ds, test_ds, encoder = input_pipeline.get_tc_datasets(
-            n_devices=jax.local_device_count(),
+            n_devices=len(devices),
             task_name=FLAGS.task_name,
             data_dir=FLAGS.data_dir,
             batch_size=batch_size,
@@ -185,7 +188,7 @@ def main(argv):
     rng, init_rng = random.split(rng)
     # We init the first set of dropout PRNG keys, but update it afterwards inside
     # the main pmap'd training update for performance.
-    dropout_rngs = random.split(rng, jax.local_device_count())
+    dropout_rngs = random.split(rng, len(devices))
 
     lr_fn = train_utils.create_learning_rate_scheduler(factors=config.factors,
                                                        base_learning_rate=learning_rate,
@@ -199,7 +202,7 @@ def main(argv):
     tx = optim(lr_fn)
 
     t_state = train_utils.get_model(model_type, create_train_state, model_kwargs, init_rng,
-                                        input_shape, tx)
+                                    input_shape, tx)
 
     start_step = 0
     if config.restore_checkpoints or FLAGS.test_only:
@@ -209,11 +212,11 @@ def main(argv):
         start_step = t_state.step
 
     # Replicate t_state, not sure if needed
-    t_state = jax_utils.replicate(t_state)
+    t_state = jax_utils.replicate(t_state, devices=devices)
 
-    p_train_step = jax.pmap(train_step, axis_name='batch')
-    p_eval_step = jax.pmap(eval_step, axis_name='batch')
-    # p_pred_step = jax.pmap(predict_step, axis_name='batch')
+    p_train_step = jax.pmap(train_step, axis_name='batch', devices=devices)
+    p_eval_step = jax.pmap(eval_step, axis_name='batch', devices=devices)
+    # p_pred_step = jax.pmap(predict_step, axis_name='batch', devices=devices)
 
     def run_eval(eval_ds, num_eval_steps=-1):
         eval_metrics = []
@@ -224,8 +227,7 @@ def main(argv):
             num_iter = range(num_eval_steps)
         for _, eval_batch in zip(num_iter, eval_iter):
             # pylint: disable=protected-access
-            eval_batch = common_utils.shard(
-                    tree_map(lambda x: x._numpy(), eval_batch))
+            eval_batch = shard(tree_map(lambda x: x._numpy(), eval_batch), n_devices=len(devices))
             # pylint: enable=protected-access
             metrics = p_eval_step(t_state, eval_batch)
             eval_metrics.append(metrics)
@@ -253,7 +255,7 @@ def main(argv):
     logging.info('====================')
 
     for step, batch in zip(range(start_step, num_train_steps), train_iter):
-        batch = common_utils.shard(tree_map(lambda x: x._numpy(), batch))  # pylint: disable=protected-access
+        batch = shard(tree_map(lambda x: x._numpy(), batch), n_devices=len(devices))
         t_state, metrics, dropout_rngs = p_train_step(t_state, batch,
                                                           dropout_rng=dropout_rngs)
         metrics_all.append(metrics)
