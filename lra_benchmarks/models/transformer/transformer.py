@@ -31,6 +31,7 @@ class TransformerBlock(nn.Module):
     padding_mask: Any=None
     dropout_rate: Any=0.1
     attention_dropout_rate: Any=0.1
+    decode: bool=False
 
     @nn.compact
     def __call__(self, inputs, *, causal_mask: bool=False, padding_mask=None,
@@ -44,9 +45,10 @@ class TransformerBlock(nn.Module):
             num_heads: number of heads
             dtype: the dtype of the computation (default: float32).
             causal_mask: bool, mask future or not
-            padding_mask: bool, mask padding tokens
+            padding_mask: bool array, mask padding tokens
             dropout_rate: dropout rate
             attention_dropout_rate: dropout rate for attention weights
+            decode: bool, whether or not we're decoding (originally cache)
             deterministic: bool, deterministic or not (to apply dropout)
 
         Returns:
@@ -72,9 +74,10 @@ class TransformerBlock(nn.Module):
                 qkv_features=self.qkv_dim,
                 kernel_init=jnn.initializers.xavier_uniform(),
                 bias_init=jnn.initializers.normal(stddev=1e-6),
-                # bias=False,  # Presumably this was unimportant 0_0
+                use_bias=False,
                 broadcast_dropout=False,
                 dropout_rate=self.attention_dropout_rate,
+                decode=self.decode
         )(x, deterministic=deterministic, mask=mask)
         x = nn.Dropout(rate=self.dropout_rate)(x, deterministic=deterministic)
         x = x + inputs
