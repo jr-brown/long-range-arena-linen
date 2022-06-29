@@ -4,6 +4,7 @@ This is a fork of google's long-range arena that aims to update it to use the la
 
 Status: Runs for transformer_base with text_classification on CPU & GPU though unverified if it trains the model properly at the moment
 
+
 ## Dependancy Installation
 
 ### CPU
@@ -17,6 +18,12 @@ Status: Runs for transformer_base with text_classification on CPU & GPU though u
 ### Testing
 * Run test_setup.sh, it should do 20 trainig steps with some eval in the middle and then stop
 * Ignore any GPU related errors from tensorflow, only jax needs to use the gpu
+
+
+## Running
+* Either use one of the scripts or
+* Set a flag before invoking python: "XLA_FLAGS=--xla_gpu_force_compilation_parallelism=1 python ..."
+
 
 ## Changes to original codebase functionality
 * Removed cache that was used for 'efficient autoregressive decoding' due to the mechanisms used not being present / been moved in latest flax version, should be able to re-implement this behaviour with the decode options if needed
