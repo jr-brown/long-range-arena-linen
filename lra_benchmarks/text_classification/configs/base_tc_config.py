@@ -48,7 +48,7 @@ def get_config():
   config.qkv_dim = 256
   config.mlp_dim = 1024
   config.num_data_entries = None
-  config.available_devices = [0]
+  config.available_devices = [2,3]
 
   config.trial = 0  # dummy for repeated runs.
   return config

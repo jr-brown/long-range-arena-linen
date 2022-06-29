@@ -2,7 +2,17 @@
 
 This is a fork of google's long-range arena that aims to update it to use the latest version of flax, which now uses linen instead of nn (amongst other things). I am primarily using https://flax.readthedocs.io/en/latest/howtos/linen_upgrade_guide.html#defining-simple-modules as a guide.
 
-Status: Runs for transformer_base with text_classification on CPU & GPU though unverified if it trains the model properly at the moment
+
+## Status
+
+(T) means implemented but to be tested
+
+### Implemented Attention Mechanisms
+* Vanilla Transformer
+* Local Attention (T)
+
+### Implemented Tasks
+* Text classification
 
 
 ## Dependancy Installation
@@ -28,6 +38,10 @@ Status: Runs for transformer_base with text_classification on CPU & GPU though u
 ## Changes to original codebase functionality
 * Removed cache that was used for 'efficient autoregressive decoding' due to the mechanisms used not being present / been moved in latest flax version, should be able to re-implement this behaviour with the decode options if needed
 * Removed 'inputs_segmentation' as they were not referenced outside of models and not implemented for all heads in the new flax version
+
+
+## Known issues
+* Despite the config setting which GPUs are available for use working for the bulk of the calculations, it seems to use ~140MiB on the other GPUs as well
 
 
 # Original README
