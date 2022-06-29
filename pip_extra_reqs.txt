@@ -1,5 +1,5 @@
-flax
-tensorflow
-tensorflow_datasets
-ml_collections
+flax==0.5.2
+ml_collections==0.1.1
+tensorflow==2.9.1
+tensorflow_datasets==4.6.0
 
