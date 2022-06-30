@@ -5,11 +5,14 @@ This is a fork of google's long-range arena that aims to update it to use the la
 
 ## Status
 
-(T) means implemented but to be tested, still need to document things.
+### Key
+* T - Implemented, untested
+* C - Runs on CPU
+* G - Runs on GPU and trains (default)
 
 ### Implemented Attention Mechanisms
 * Vanilla Transformer
-* Local Attention (T)
+* Local Attention (C)
 
 ### Implemented Tasks
 * Text classification
