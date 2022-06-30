@@ -33,6 +33,7 @@ class LocalTransformerBlock(nn.Module):
     dropout_rate: Any=0.1
     attention_dropout_rate: Any=0.1
     block_size: Any=50
+    max_len: int=512
 
     @nn.compact
     def __call__(self, inputs, *, causal_mask: bool=False, padding_mask=None,
@@ -69,14 +70,15 @@ class LocalTransformerBlock(nn.Module):
                 bias=False,
                 broadcast_dropout=False,
                 dropout_rate=self.attention_dropout_rate,
-                block_size=self.block_size
+                block_size=self.block_size,
+                max_len=self.max_len
         )(x, causal_mask=causal_mask, padding_mask=padding_mask,
           deterministic=deterministic)
         x = nn.Dropout(rate=self.dropout_rate)(x, deterministic=deterministic)
         x = x + inputs
 
         # MLP block.
-        y = nn.LayerNorm(x)
+        y = nn.LayerNorm()(x)
         y = common_layers.MlpBlock(
                 mlp_dim=self.mlp_dim,
                 dtype=self.dtype,
@@ -188,9 +190,10 @@ class LocalTransformerEncoder(nn.Module):
                     dropout_rate=self.dropout_rate,
                     attention_dropout_rate=self.attention_dropout_rate,
                     name=f'encoderblock_{lyr}',
-                    block_size=self.block_size
+                    block_size=self.block_size,
+                    max_len=self._max_len
             )(x, padding_mask=src_padding_mask, deterministic=not train)
-        encoded = nn.LayerNorm(x, dtype=dtype, name='encoder_norm')
+        encoded = nn.LayerNorm(dtype=dtype, name='encoder_norm')(x)
 
         if self.classifier:
             encoded = common_layers.classifier_head(

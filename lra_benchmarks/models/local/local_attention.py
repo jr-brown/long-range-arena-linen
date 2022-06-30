@@ -15,12 +15,11 @@
 
 from functools import partial
 from typing import Any
-
-from absl import logging
+from math import ceil
 
 from flax import linen as nn
 
-from jax import lax
+from jax import lax, jit
 import jax.numpy as jnp
 import jax.nn as jnn
 
@@ -40,6 +39,11 @@ class LocalAttention(nn.Module):
     bias_init: Any=jnn.initializers.zeros
     bias: Any=True
     block_size: Any=20
+    max_len: int=512
+
+    def setup(self):
+        self.n_blocks = ceil(self.max_len / self.block_size)
+        self.blocks_total_len = self.n_blocks * self.block_size
 
     @nn.compact
     def __call__(self, inputs_q, inputs_kv=None, *, causal_mask: bool=False, padding_mask=None,
@@ -83,18 +87,30 @@ class LocalAttention(nn.Module):
             output of shape `[bs, dim1, dim2, ..., dimN, features]`.
         """
 
-        orig_seqlen = inputs_q.shape[-2]
-        logging.info(inputs_q)
-        extra_len = self.block_size - (orig_seqlen % self.block_size)
-        pad_width = jnp.array([[0, 0], [0, extra_len], [0, 0]])
-        mask_pad = jnp.array([[0, 0], [0, extra_len], [0, 0]])
+        orig_len = inputs_q.shape[-2]
 
-        inputs_q = jnp.pad(inputs_q, pad_width)
+        # Done this way to avoid jnp.pad which doesn't work with jit
+        def pad_f(x, val=0):
+            assert x.ndim == 3
+            new_x = jnp.full((x.shape[0], self.blocks_total_len, x.shape[-1]), val, dtype=x.dtype)
+            """
+            i, j = 0, 0
+            for ix in x:
+                for jx in ix:
+                    new_x = new_x.at[i,j].set(jx)
+                    j += 1
+                i += 1
+                j = 0
+            """
+            new_x = new_x.at[:,:orig_len,:].set(x)
+            return new_x
+
+        inputs_q = pad_f(inputs_q)
         if inputs_kv is not None:
-            inputs_kv = jnp.pad(inputs_kv, pad_width)
+            inputs_kv = pad_f(inputs_kv)
 
         # logging.info(padding_mask)
-        padding_mask = jnp.pad(padding_mask, mask_pad, constant_values=-1e9)
+        padding_mask = pad_f(padding_mask, val=-1e9)
         # logging.info(inputs_q)
 
         assert inputs_q.ndim == 3
@@ -132,11 +148,11 @@ class LocalAttention(nn.Module):
         num_kv_blocks = kvlength // self.block_size
 
         block_query = jnp.reshape(
-                query, (bs, self.block_size, num_query_blocks, self.num_heads, head_dim))
+                query, (bs, num_query_blocks, self.block_size, self.num_heads, head_dim))
         block_key = jnp.reshape(
-                key, (bs, self.block_size, num_kv_blocks, self.num_heads, head_dim))
+                key, (bs, num_kv_blocks, self.block_size, self.num_heads, head_dim))
         block_value = jnp.reshape(
-                value, (bs, self.block_size, num_kv_blocks, self.num_heads, head_dim))
+                value, (bs, num_kv_blocks, self.block_size, self.num_heads, head_dim))
 
         # create attention masks
         mask_components = []
@@ -145,9 +161,23 @@ class LocalAttention(nn.Module):
             mask_components.append(nn.make_causal_mask(key))
 
         if padding_mask is not None:
+            assert padding_mask.shape[-1] == 1 and len(padding_mask.shape) == 3
+            padding_mask = jnp.reshape(padding_mask, (bs * num_query_blocks,
+                                                      self.block_size))
+
             if key_padding_mask is None:
                 key_padding_mask = padding_mask
-            mask_components.append(nn.make_attention_mask(padding_mask, key_padding_mask))
+            else:
+                assert key_padding_mask.shape[-1] == 1 and len(key_padding_mask.shape) == 3
+                key_padding_mask = jnp.reshape(key_padding_mask,
+                                               (bs*num_query_blocks, self.block_size))
+
+            pad_mask = nn.make_attention_mask(padding_mask, key_padding_mask)
+            # To get into shape (bs, num_query_blocks, num_heads, block_size, block_size)
+            pad_mask = jnp.reshape(jnp.repeat(pad_mask, self.num_heads, axis=0),
+                                   (bs, num_query_blocks, self.num_heads, self.block_size,
+                                    self.block_size))
+            mask_components.append(pad_mask)
 
         if mask_components:
             attention_mask = nn.combine_masks(*mask_components)
@@ -159,7 +189,7 @@ class LocalAttention(nn.Module):
         else:
             attention_bias = None
 
-        if self.dropout_rng is None:
+        if self.dropout_rng is None and not deterministic:
             dropout_rng = self.make_rng('dropout')
         else:
             dropout_rng = self.dropout_rng
@@ -185,12 +215,12 @@ class LocalAttention(nn.Module):
                 axis=(-2, -1),
                 kernel_init=self.kernel_init,
                 bias_init=self.bias_init,
-                bias=self.bias,
+                use_bias=self.bias,
                 dtype=self.dtype,
                 precision=self.precision,
                 name='out')(x)
 
-        out = out[:, :orig_seqlen, :]
+        out = out[:, :orig_len, :]
 
         return out
 
