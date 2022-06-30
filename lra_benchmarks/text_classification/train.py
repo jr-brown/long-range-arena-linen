@@ -138,9 +138,9 @@ def main(argv):
     eval_freq = config.eval_frequency
     random_seed = config.random_seed
     model_type = config.model_type
-    devices = get_devices(config.available_devices)
+    gpu_devices, n_devices = get_devices(config.available_devices)
 
-    logging.info(f"GPU devices: {devices}")
+    logging.info(f"GPU devices: {gpu_devices}")
 
     max_length = config.max_length
 
@@ -148,11 +148,11 @@ def main(argv):
         summary_writer = tensorboard.SummaryWriter(
                 os.path.join(FLAGS.model_dir, 'summary'))
 
-    if batch_size % len(devices) > 0:
+    if batch_size % n_devices > 0:
         raise ValueError('Batch size must be divisible by the number of devices')
 
     train_ds, eval_ds, test_ds, encoder = input_pipeline.get_tc_datasets(
-            n_devices=len(devices),
+            n_devices=n_devices,
             task_name=FLAGS.task_name,
             data_dir=FLAGS.data_dir,
             batch_size=batch_size,
@@ -186,7 +186,7 @@ def main(argv):
     rng, init_rng = random.split(rng)
     # We init the first set of dropout PRNG keys, but update it afterwards inside
     # the main pmap'd training update for performance.
-    dropout_rngs = random.split(rng, len(devices))
+    dropout_rngs = random.split(rng, n_devices)
 
     lr_fn = train_utils.create_learning_rate_scheduler(factors=config.factors,
                                                        base_learning_rate=learning_rate,
@@ -210,11 +210,11 @@ def main(argv):
         start_step = t_state.step
 
     # Replicate t_state, not sure if needed
-    t_state = jax_utils.replicate(t_state, devices=devices)
+    t_state = jax_utils.replicate(t_state, devices=gpu_devices)
 
-    p_train_step = jax.pmap(train_step, axis_name='batch', devices=devices)
-    p_eval_step = jax.pmap(eval_step, axis_name='batch', devices=devices)
-    # p_pred_step = jax.pmap(predict_step, axis_name='batch', devices=devices)
+    p_train_step = jax.pmap(train_step, axis_name='batch', devices=gpu_devices)
+    p_eval_step = jax.pmap(eval_step, axis_name='batch', devices=gpu_devices)
+    # p_pred_step = jax.pmap(predict_step, axis_name='batch', devices=gpu_devices)
 
     def run_eval(eval_ds, num_eval_steps=-1):
         eval_metrics = []
@@ -225,7 +225,7 @@ def main(argv):
             num_iter = range(num_eval_steps)
         for _, eval_batch in zip(num_iter, eval_iter):
             # pylint: disable=protected-access
-            eval_batch = shard(tree_map(lambda x: x._numpy(), eval_batch), n_devices=len(devices))
+            eval_batch = shard(tree_map(lambda x: x._numpy(), eval_batch), n_devices=n_devices)
             # pylint: enable=protected-access
             metrics = p_eval_step(t_state, eval_batch)
             eval_metrics.append(metrics)
@@ -253,7 +253,7 @@ def main(argv):
     logging.info('====================')
 
     for step, batch in zip(range(start_step, num_train_steps), train_iter):
-        batch = shard(tree_map(lambda x: x._numpy(), batch), n_devices=len(devices))
+        batch = shard(tree_map(lambda x: x._numpy(), batch), n_devices=n_devices)
         t_state, metrics, dropout_rngs = p_train_step(t_state, batch,
                                                           dropout_rng=dropout_rngs)
         metrics_all.append(metrics)

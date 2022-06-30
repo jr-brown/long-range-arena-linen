@@ -194,4 +194,7 @@ class LocalAttention(nn.Module):
 
         return out
 
-LocalSelfAttention = partial(LocalAttention, inputs_kv=None)
+class LocalSelfAttention(LocalAttention):
+    def __call__(self, inputs, **kwargs):
+        return super().__call__(inputs, inputs_kv=None, **kwargs)
+

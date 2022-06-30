@@ -5,7 +5,7 @@ This is a fork of google's long-range arena that aims to update it to use the la
 
 ## Status
 
-(T) means implemented but to be tested
+(T) means implemented but to be tested, still need to document things.
 
 ### Implemented Attention Mechanisms
 * Vanilla Transformer

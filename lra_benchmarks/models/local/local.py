@@ -59,7 +59,7 @@ class LocalTransformerBlock(nn.Module):
 
         # Attention block.
         assert inputs.ndim == 3
-        x = nn.LayerNorm(inputs)
+        x = nn.LayerNorm()(inputs)
         x = local_attention.LocalSelfAttention(
                 num_heads=self.num_heads,
                 dtype=self.dtype,
@@ -70,7 +70,8 @@ class LocalTransformerBlock(nn.Module):
                 broadcast_dropout=False,
                 dropout_rate=self.attention_dropout_rate,
                 block_size=self.block_size
-        )(x, causal_mask=causal_mask, padding_mask=padding_mask, deterministic=deterministic)
+        )(x, causal_mask=causal_mask, padding_mask=padding_mask,
+          deterministic=deterministic)
         x = nn.Dropout(rate=self.dropout_rate)(x, deterministic=deterministic)
         x = x + inputs
 
@@ -112,7 +113,7 @@ class LocalTransformerEncoder(nn.Module):
             self._max_len = self.max_len
 
     @nn.compact
-    def __call__(self, inputs, inputs_positions=None, train=True):
+    def __call__(self, inputs, *, inputs_positions=None, train=True):
         """Applies Local Transformer model on the inputs.
 
         Args:
@@ -147,7 +148,7 @@ class LocalTransformerEncoder(nn.Module):
 
         # Input Embedding
         if self.shared_embedding is None:
-            input_embed = partial(nn.Embed,
+            input_embed = nn.Embed(
                     num_embeddings=self.vocab_size,
                     features=self.emb_dim,
                     embedding_init=jnn.initializers.normal(stddev=1.0))
@@ -165,11 +166,10 @@ class LocalTransformerEncoder(nn.Module):
 
         pe_init = jnn.initializers.normal(stddev=0.02) if self.learn_pos_emb else None
         x = common_layers.AddPositionEmbs(
-                x,
                 inputs_positions=inputs_positions,
                 posemb_init=pe_init,
                 max_len=self._max_len,
-                name='posembed_input')
+                name='posembed_input')(x)
         x = nn.Dropout(rate=self.dropout_rate)(x, deterministic=not train)
 
         if self.use_bfloat16:
@@ -181,17 +181,15 @@ class LocalTransformerEncoder(nn.Module):
         # Input Encoder
         for lyr in range(self.num_layers):
             x = LocalTransformerBlock(
-                    x,
                     qkv_dim=self.qkv_dim,
                     mlp_dim=self.mlp_dim,
                     num_heads=self.num_heads,
                     dtype=dtype,
-                    padding_mask=src_padding_mask,
                     dropout_rate=self.dropout_rate,
                     attention_dropout_rate=self.attention_dropout_rate,
-                    deterministic=not train,
                     name=f'encoderblock_{lyr}',
-                    block_size=self.block_size)
+                    block_size=self.block_size
+            )(x, padding_mask=src_padding_mask, deterministic=not train)
         encoded = nn.LayerNorm(x, dtype=dtype, name='encoder_norm')
 
         if self.classifier:
