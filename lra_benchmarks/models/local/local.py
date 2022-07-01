@@ -20,71 +20,7 @@ import jax.nn as jnn
 
 from lra_benchmarks.models.layers import common_layers
 from lra_benchmarks.models.local import local_attention
-
-
-class LocalTransformerBlock(nn.Module):
-    """Transformer layer (https://openreview.net/forum?id=H1e5GJBtDr)."""
-
-    qkv_dim: Any
-    mlp_dim: Any
-    num_heads: Any
-    dtype: Any=jnp.float32
-    dropout_rate: Any=0.1
-    attention_dropout_rate: Any=0.1
-    block_size: Any=50
-    max_len: int=512
-
-    @nn.compact
-    def __call__(self, inputs, *, causal_mask: bool=False, padding_mask=None,
-                 deterministic: bool=False):
-        """Applies TransformerBlock module.
-
-        Args:
-            inputs: input data
-            qkv_dim: dimension of the query/key/value
-            mlp_dim: dimension of the mlp on top of attention block
-            num_heads: number of heads
-            dtype: the dtype of the computation (default: float32).
-            causal_mask: bool, mask future or not
-            padding_mask: bool, mask padding tokens
-            dropout_rate: dropout rate
-            attention_dropout_rate: dropout rate for attention weights
-            deterministic: bool, deterministic or not (to apply dropout)
-            block_size: int, block size.
-
-        Returns:
-            output after transformer block.
-
-        """
-
-        # Attention block.
-        assert inputs.ndim == 3
-        x = nn.LayerNorm()(inputs)
-        x = local_attention.LocalSelfAttention(
-                num_heads=self.num_heads,
-                dtype=self.dtype,
-                qkv_features=self.qkv_dim,
-                kernel_init=jnn.initializers.xavier_uniform(),
-                bias_init=jnn.initializers.normal(stddev=1e-6),
-                bias=False,
-                broadcast_dropout=False,
-                dropout_rate=self.attention_dropout_rate,
-                block_size=self.block_size,
-                max_len=self.max_len
-        )(x, causal_mask=causal_mask, padding_mask=padding_mask,
-          deterministic=deterministic)
-        x = nn.Dropout(rate=self.dropout_rate)(x, deterministic=deterministic)
-        x = x + inputs
-
-        # MLP block.
-        y = nn.LayerNorm()(x)
-        y = common_layers.MlpBlock(
-                mlp_dim=self.mlp_dim,
-                dtype=self.dtype,
-                dropout_rate=self.dropout_rate,
-        )(y, deterministic=deterministic)
-
-        return x + y
+from lra_benchmarks.models.generic import generic
 
 
 class LocalTransformerEncoder(nn.Module):
@@ -180,9 +116,15 @@ class LocalTransformerEncoder(nn.Module):
         else:
             dtype = jnp.float32
 
+        attention_module_kwargs = {
+            "block_size": self.block_size,
+            "max_len": self._max_len
+        }
+
         # Input Encoder
         for lyr in range(self.num_layers):
-            x = LocalTransformerBlock(
+            x = generic.GenericBlock(
+                    attention_module=local_attention.LocalSelfAttention,
                     qkv_dim=self.qkv_dim,
                     mlp_dim=self.mlp_dim,
                     num_heads=self.num_heads,
@@ -190,8 +132,7 @@ class LocalTransformerEncoder(nn.Module):
                     dropout_rate=self.dropout_rate,
                     attention_dropout_rate=self.attention_dropout_rate,
                     name=f'encoderblock_{lyr}',
-                    block_size=self.block_size,
-                    max_len=self._max_len
+                    attention_module_kwargs=attention_module_kwargs
             )(x, padding_mask=src_padding_mask, deterministic=not train)
         encoded = nn.LayerNorm(dtype=dtype, name='encoder_norm')(x)
 
@@ -335,14 +276,18 @@ class LocalTransformerDecoder(nn.Module):
                 max_len=self.max_len,
                 posemb_init=common_layers.sinusoidal_init(max_len=self.max_len))(x)
         x = nn.Dropout(rate=self.dropout_rate)(x, deterministic=not train)
+
+        attention_module_kwargs = {"block_size": self.block_size}
+
         for _ in range(self.num_layers):
-            x = LocalTransformerBlock(
+            x = generic.GenericBlock(
+                    attention_module=local_attention.LocalSelfAttention,
                     qkv_dim=self.qkv_dim,
                     mlp_dim=self.mlp_dim,
                     num_heads=self.num_heads,
                     dropout_rate=self.dropout_rate,
                     attention_dropout_rate=self.attention_dropout_rate,
-                    block_size=self.block_size
+                    attention_module_kwargs=attention_module_kwargs
             )(x, causal_mask=True, padding_mask=padding_mask, deterministic=not train)
         x = nn.LayerNorm()(x)
         logits = nn.Dense(

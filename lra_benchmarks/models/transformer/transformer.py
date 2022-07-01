@@ -12,78 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Transformer model."""
-from lra_benchmarks.models.layers import common_layers
 from typing import Any
 
 import flax.linen as nn
 import jax.numpy as jnp
 import jax.nn as jnn
 
-
-class TransformerBlock(nn.Module):
-    """Transformer layer (https://openreview.net/forum?id=H1e5GJBtDr)."""
-
-    qkv_dim: Any
-    mlp_dim: Any
-    num_heads: Any
-    dtype: Any=jnp.float32
-    dropout_rate: Any=0.1
-    attention_dropout_rate: Any=0.1
-    decode: bool=False
-
-    @nn.compact
-    def __call__(self, inputs, *, causal_mask: bool=False, padding_mask=None,
-                 deterministic: bool=False):
-        """Applies TransformerBlock module.
-
-        Args:
-            inputs: input data
-            qkv_dim: dimension of the query/key/value
-            mlp_dim: dimension of the mlp on top of attention block
-            num_heads: number of heads
-            dtype: the dtype of the computation (default: float32).
-            causal_mask: bool, mask future or not
-            padding_mask: bool array, mask padding tokens
-            dropout_rate: dropout rate
-            attention_dropout_rate: dropout rate for attention weights
-            decode: bool, whether or not we're decoding (originally cache)
-            deterministic: bool, deterministic or not (to apply dropout)
-
-        Returns:
-            output after transformer block.
-
-        """
-
-        # Attention block.
-        assert inputs.ndim == 3
-        x = nn.LayerNorm()(inputs)
-
-        mask = nn.make_attention_mask(padding_mask, padding_mask)
-
-        if causal_mask:
-            mask = nn.combine_masks(mask, nn.make_causal_mask(x))
-
-        x = nn.SelfAttention(
-                num_heads=self.num_heads,
-                dtype=self.dtype,
-                qkv_features=self.qkv_dim,
-                kernel_init=jnn.initializers.xavier_uniform(),
-                bias_init=jnn.initializers.normal(stddev=1e-6),
-                use_bias=False,
-                broadcast_dropout=False,
-                dropout_rate=self.attention_dropout_rate,
-                decode=self.decode
-        )(x, deterministic=deterministic, mask=mask)
-        x = nn.Dropout(rate=self.dropout_rate)(x, deterministic=deterministic)
-        x = x + inputs
-
-        # MLP block.
-        y = nn.LayerNorm()(x)
-        y = common_layers.MlpBlock(
-            mlp_dim=self.mlp_dim, dtype=self.dtype, dropout_rate=self.dropout_rate
-        )(y, deterministic=deterministic)
-
-        return x + y
+from lra_benchmarks.models.layers import common_layers
+from lra_benchmarks.models.transformer import transformer_attention
+from lra_benchmarks.models.generic import generic
 
 
 class TransformerEncoder(nn.Module):
@@ -183,7 +120,8 @@ class TransformerEncoder(nn.Module):
 
         # Input Encoder
         if self.tied_weights:
-            encoder = TransformerBlock(
+            encoder = generic.GenericBlock(
+                    attention_module=transformer_attention.MaskedSelfAttention,
                     qkv_dim=self.qkv_dim,
                     mlp_dim=self.mlp_dim,
                     num_heads=self.num_heads,
@@ -195,7 +133,8 @@ class TransformerEncoder(nn.Module):
                 x = encoder(x, padding_mask=src_padding_mask, deterministic=not train)
         else:
             for lyr in range(self.num_layers):
-                x = TransformerBlock(
+                x = generic.GenericBlock(
+                        attention_module=transformer_attention.MaskedSelfAttention,
                         qkv_dim=self.qkv_dim,
                         mlp_dim=self.mlp_dim,
                         num_heads=self.num_heads,

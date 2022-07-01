@@ -20,6 +20,7 @@ import jax.nn as jnn
 
 from lra_benchmarks.models.layers import common_layers
 from lra_benchmarks.models.longformer import longformer_attention
+from lra_benchmarks.models.generic import generic
 
 
 class LongformerBlock(nn.Module):
@@ -189,20 +190,29 @@ class LongformerEncoder(nn.Module):
         else:
             dtype = jnp.float32
 
+        attention_module_kwargs = {
+            "sliding_window_size": self.sliding_window_size,
+            "segmentation": inputs_segmentation
+        }
+
+        attention_kwargs = {
+            "global_mask": global_mask
+        }
+
         # Input Encoder
         for lyr in range(self.num_layers):
-            x = LongformerBlock(
+            x = generic.GenericBlock(
+                    attention_module=longformer_attention.LongformerSelfAttention,
                     qkv_dim=self.qkv_dim,
                     mlp_dim=self.mlp_dim,
                     num_heads=self.num_heads,
-                    sliding_window_size=self.sliding_window_size,
                     dtype=dtype,
-                    inputs_segmentation=inputs_segmentation,
                     dropout_rate=self.dropout_rate,
                     attention_dropout_rate=self.attention_dropout_rate,
-                    name=f'encoderblock_{lyr}'
-            )(x, global_mask=global_mask, causal_mask=causal_mask, padding_mask=src_padding_mask,
-              deterministic=not train)
+                    name=f'encoderblock_{lyr}',
+                    attention_module_kwargs=attention_module_kwargs
+            )(x, causal_mask=causal_mask, padding_mask=src_padding_mask, deterministic=not train,
+              attention_kwargs=attention_kwargs)
         encoded = nn.LayerNorm(dtype=dtype, name='encoder_norm')(x)
 
         if self.classifier:
@@ -356,16 +366,26 @@ class LongformerDecoder(nn.Module):
                 max_len=self.max_len,
                 posemb_init=common_layers.sinusoidal_init(max_len=self.max_len))(x)
         x = nn.Dropout(rate=self.dropout_rate)(x, deterministic=not train)
+
+        attention_module_kwargs = {
+            "sliding_window_size": self.sliding_window_size,
+        }
+
+        attention_kwargs = {
+            "global_mask": global_mask
+        }
+
         for _ in range(self.num_layers):
-            x = LongformerBlock(
+            x = generic.GenericBlock(
+                    attention_module=longformer_attention.LongformerSelfAttention,
                     qkv_dim=self.qkv_dim,
                     mlp_dim=self.mlp_dim,
                     num_heads=self.num_heads,
-                    sliding_window_size=self.sliding_window_size,
                     dropout_rate=self.dropout_rate,
-                    attention_dropout_rate=self.attention_dropout_rate
-            )(x, global_mask=global_mask, causal_mask=True, padding_mask=padding_mask,
-              deterministic=not train)
+                    attention_dropout_rate=self.attention_dropout_rate,
+                    attention_module_kwargs=attention_module_kwargs
+            )(x, causal_mask=True, padding_mask=padding_mask, deterministic=not train,
+              attention_kwargs=attention_kwargs)
         x = nn.LayerNorm()(x)
         logits = nn.Dense(
                 self.vocab_size,

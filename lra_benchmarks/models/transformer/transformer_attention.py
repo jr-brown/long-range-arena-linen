@@ -26,12 +26,12 @@ class MaskedSelfAttention(nn.Module):
         x = nn.SelfAttention(
                 num_heads=self.num_heads,
                 dtype=self.dtype,
-                qkv_features=self.qkv_dim,
+                qkv_features=self.qkv_features,
                 kernel_init=jnn.initializers.xavier_uniform(),
                 bias_init=jnn.initializers.normal(stddev=1e-6),
                 use_bias=False,
                 broadcast_dropout=False,
-                dropout_rate=self.attention_dropout_rate,
+                dropout_rate=self.dropout_rate,
         )(x, deterministic=deterministic, mask=mask)
 
         return x
