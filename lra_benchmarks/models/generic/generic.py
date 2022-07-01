@@ -70,6 +70,148 @@ class GenericBlock(nn.Module):
         return x + y
 
 
+class GenericEncoder(nn.Module):
+    """Transformer Model Encoder."""
+
+    block_module: nn.Module
+    vocab_size: Any
+    shared_embedding: Any=None
+    use_bfloat16: Any=False
+    emb_dim: Any=512
+    num_heads: Any=8
+    dtype: Any=jnp.float32
+    num_layers: Any=6
+    qkv_dim: Any=512
+    mlp_dim: Any=2048
+    max_len: Any=512
+    dropout_rate: Any=0.1
+    attention_dropout_rate: Any=0.1
+    learn_pos_emb: Any=False
+    classifier: Any=False
+    classifier_pool: Any='CLS'
+    num_classes: Any=10
+    tied_weights: Any=False
+    block_module_kwargs: Optional[dict[str, Any]]=None
+
+    def setup(self):
+        if self.classifier and self.classifier_pool == 'CLS':
+            self._max_len = self.max_len + 1
+        else:
+            self._max_len = self.max_len
+
+    @nn.compact
+    def __call__(self, inputs, *, inputs_positions=None, inputs_segmentation=None, train=True,
+                 block_kwargs: Optional[dict[str, Any]]=None):
+        """Applies Transformer model on the inputs.
+
+        Args:
+            inputs: input data
+            vocab_size: size of the vocabulary
+            inputs_positions: input subsequence positions for packed examples.
+            shared_embedding: a shared embedding layer to use.
+            use_bfloat16: bool: whether use bfloat16.
+            emb_dim: dimension of embedding
+            num_heads: number of heads
+            dtype: the dtype of the computation (default: float32)
+            num_layers: number of layers
+            qkv_dim: dimension of the query/key/value
+            mlp_dim: dimension of the mlp on top of attention block
+            max_len: maximum length.
+            train: if it is training,
+            dropout_rate: dropout rate
+            attention_dropout_rate: dropout rate for attention weights
+            learn_pos_emb: boolean, if learn the positional embedding or use the
+                sinusoidal positional embedding.
+            classifier: boolean, for classification mode (output N-class logits)
+            classifier_pool: str, supports "MEAN", "MAX" pooling.
+            num_classes: int, number of classification classes.
+            tied_weights: bool, to tie weights or not.
+
+        Returns:
+            output of a transformer encoder or logits if classifier_mode is true.
+        """
+        if self.block_module_kwargs is None:
+            block_module_kwargs = {}
+        else:
+            block_module_kwargs = self.block_module_kwargs
+
+        if block_kwargs is None:
+            block_kwargs = {}
+
+        assert inputs.ndim == 2  # (batch, len)
+
+        # Padding Masks
+        src_padding_mask = (inputs > 0)[..., None]
+        src_padding_mask = jnp.reshape(src_padding_mask, inputs.shape)  # (batch, len)
+
+        # Input Embedding
+        if self.shared_embedding is None:
+            input_embed = nn.Embed(
+                    num_embeddings=self.vocab_size,
+                    features=self.emb_dim,
+                    embedding_init=jnn.initializers.normal(stddev=1.0))
+        else:
+            input_embed = self.shared_embedding
+        x = inputs.astype('int32')
+        x = input_embed(x)
+
+        if self.classifier and self.classifier_pool == 'CLS':
+            cls = self.param('cls', jnn.initializers.zeros, (1, 1, self.emb_dim))
+            cls = jnp.tile(cls, [x.shape[0], 1, 1])
+            x = jnp.concatenate([cls, x], axis=1)
+            src_padding_mask = jnp.concatenate(
+                    [src_padding_mask[:, :1], src_padding_mask], axis=1)
+
+        pe_init = jnn.initializers.normal(stddev=0.02) if self.learn_pos_emb else None
+        x = common_layers.AddPositionEmbs(
+                inputs_positions=inputs_positions,
+                posemb_init=pe_init,
+                max_len=self._max_len,
+                name='posembed_input')(x)
+        x = nn.Dropout(rate=self.dropout_rate)(x, deterministic=not train)
+
+        if self.use_bfloat16:
+            x = x.astype(jnp.bfloat16)
+            dtype = jnp.bfloat16
+        else:
+            dtype = jnp.float32
+
+        # Input Encoder
+        if self.tied_weights:
+            encoder = self.block_module(
+                    qkv_dim=self.qkv_dim,
+                    mlp_dim=self.mlp_dim,
+                    num_heads=self.num_heads,
+                    dtype=dtype,
+                    dropout_rate=self.dropout_rate,
+                    attention_dropout_rate=self.attention_dropout_rate,
+                    name='encoderblock',
+                    **block_module_kwargs)
+            for _ in range(self.num_layers):
+                x = encoder(x, inputs_segmentation=inputs_segmentation,
+                            padding_mask=src_padding_mask, deterministic=not train, **block_kwargs)
+        else:
+            for lyr in range(self.num_layers):
+                x = self.block_module(
+                        qkv_dim=self.qkv_dim,
+                        mlp_dim=self.mlp_dim,
+                        num_heads=self.num_heads,
+                        dtype=dtype,
+                        dropout_rate=self.dropout_rate,
+                        attention_dropout_rate=self.attention_dropout_rate,
+                        name=f'encoderblock_{lyr}',
+                        **block_module_kwargs
+                )(x, inputs_segmentation=inputs_segmentation, padding_mask=src_padding_mask,
+                  deterministic=not train, **block_kwargs)
+
+        encoded = nn.LayerNorm(dtype=dtype, name='encoder_norm')(x)
+
+        if self.classifier:
+            encoded = common_layers.classifier_head(
+                    encoded, self.num_classes, self.mlp_dim, pooling_mode=self.classifier_pool)
+        return encoded
+
+
 class GenericDualEncoder(nn.Module):
     """Transformer Model for Matching (dual encoding) tasks."""
 
@@ -183,7 +325,7 @@ class GenericDecoder(nn.Module):
     @nn.compact
     def __call__(self, inputs, *, train: bool=False,
                  block_kwargs: Optional[dict[str, Any]]=None):
-        """Applies Local Attention model on the inputs.
+        """Applies Transformer model on the inputs.
 
         Args:
             inputs: input data
