@@ -19,7 +19,7 @@ from math import ceil
 
 from flax import linen as nn
 
-from jax import lax, jit
+from jax import lax
 import jax.numpy as jnp
 import jax.nn as jnn
 
@@ -46,8 +46,9 @@ class LocalAttention(nn.Module):
         self.blocks_total_len = self.n_blocks * self.block_size
 
     @nn.compact
-    def __call__(self, inputs_q, inputs_kv=None, *, causal_mask: bool=False, padding_mask=None,
-                 key_padding_mask=None, deterministic: bool=False):
+    def __call__(self, inputs_q, inputs_kv=None, *, segmentation=None, key_segmentation=None,
+                 causal_mask: bool=False, padding_mask=None, key_padding_mask=None,
+                 deterministic: bool=False):
         """Applies multi-head synthesizer attention on the input data.
 
         Projects the inputs into multi-headed query, key, and value vectors,
@@ -166,6 +167,15 @@ class LocalAttention(nn.Module):
                                    (bs, num_query_blocks, self.num_heads, self.block_size,
                                     self.block_size))
             mask_components.append(pad_mask)
+
+        if segmentation is not None:
+            if key_segmentation is None:
+                key_segmentation = segmentation
+            segmentation_mask = nn.make_attention_mask(segmentation, key_segmentation)
+            segmentation_mask = jnp.reshape(jnp.repeat(segmentation_mask, self.num_heads, axis=1),
+                                            (bs, num_query_blocks, self.num_heads, self.block_size,
+                                             self.block_size))
+            mask_components.append(segmentation_mask)
 
         if mask_components:
             attention_mask = nn.combine_masks(*mask_components)

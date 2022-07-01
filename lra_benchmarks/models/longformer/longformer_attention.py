@@ -140,8 +140,6 @@ class LongformerAttention(nn.Module):
     dtype: Any=jnp.float32
     qkv_features: Any=None
     out_features: Any=None
-    segmentation: Any=None
-    key_segmentation: Any=None
     broadcast_dropout: Any=True
     dropout_rng: Any=None
     dropout_rate: Any=0.
@@ -151,7 +149,8 @@ class LongformerAttention(nn.Module):
     bias: Any=True
 
     @nn.compact
-    def __call__(self, inputs_q, inputs_kv=None, *, global_mask=None, causal_mask: bool=False, padding_mask=None,
+    def __call__(self, inputs_q, inputs_kv=None, *, segmentation=None, key_segmentation=None,
+                 global_mask=None, causal_mask: bool=False, padding_mask=None,
                  key_padding_mask=None, deterministic: bool=False):
         """Applies longformer multi-head dot product attention on the input data.
 
@@ -240,8 +239,8 @@ class LongformerAttention(nn.Module):
                 mask=sliding_window_mask,
                 padding_mask=padding_mask,
                 key_padding_mask=key_padding_mask,
-                segmentation=self.segmentation,
-                key_segmentation=self.key_segmentation,
+                segmentation=segmentation,
+                key_segmentation=key_segmentation,
                 apply_causal_mask=causal_mask)
 
         x_global = _get_attention_result(
@@ -257,8 +256,8 @@ class LongformerAttention(nn.Module):
                 mask=full_global_mask,
                 padding_mask=padding_mask,
                 key_padding_mask=key_padding_mask,
-                segmentation=self.segmentation,
-                key_segmentation=self.key_segmentation,
+                segmentation=segmentation,
+                key_segmentation=key_segmentation,
                 apply_causal_mask=causal_mask)
 
         x = jnp.where(global_mask[:, :, jnp.newaxis, jnp.newaxis], x_global, x_sw)

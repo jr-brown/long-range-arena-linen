@@ -16,12 +16,15 @@ class MaskedSelfAttention(nn.Module):
     dropout_rate: Any=0.
 
     @nn.compact
-    def __call__(self, x, *, causal_mask: bool=False, padding_mask=None, deterministic: bool=False):
+    def __call__(self, x, *, segmentation=None, causal_mask: bool=False, padding_mask=None, deterministic: bool=False):
 
         mask = nn.make_attention_mask(padding_mask, padding_mask)
 
         if causal_mask:
             mask = nn.combine_masks(mask, nn.make_causal_mask(x))
+
+        if segmentation is not None:
+            raise Exception("Not implemented yet")
 
         x = nn.SelfAttention(
                 num_heads=self.num_heads,

@@ -50,7 +50,7 @@ class LocalTransformerEncoder(nn.Module):
             self._max_len = self.max_len
 
     @nn.compact
-    def __call__(self, inputs, *, inputs_positions=None, train=True):
+    def __call__(self, inputs, *, inputs_positions=None, inputs_segmentation=None, train=True):
         """Applies Local Transformer model on the inputs.
 
         Args:
@@ -133,7 +133,8 @@ class LocalTransformerEncoder(nn.Module):
                     attention_dropout_rate=self.attention_dropout_rate,
                     name=f'encoderblock_{lyr}',
                     attention_module_kwargs=attention_module_kwargs
-            )(x, padding_mask=src_padding_mask, deterministic=not train)
+            )(x, inputs_segmentation=inputs_segmentation, padding_mask=src_padding_mask,
+              deterministic=not train)
         encoded = nn.LayerNorm(dtype=dtype, name='encoder_norm')(x)
 
         if self.classifier:
@@ -161,8 +162,8 @@ class LocalTransformerDualEncoder(nn.Module):
     interaction: Any=None
 
     @nn.compact
-    def __call__(self, inputs1, inputs2, inputs1_positions=None, inputs2_positions=None,
-                 train: bool=False):
+    def __call__(self, inputs1, inputs2, *, inputs1_positions=None, inputs2_positions=None,
+                 inputs1_segmentation=None, inputs2_segmentation=None, train: bool=False):
         """Applies Transformer model on text similarity.
 
         A deliberate choice to distinguish this from NLI because
@@ -209,10 +210,12 @@ class LocalTransformerDualEncoder(nn.Module):
         inputs1_encoded = encoder(
                 inputs=inputs1,
                 inputs_positions=inputs1_positions,
+                inputs_segmentation=inputs1_segmentation,
                 train=train)
         inputs2_encoded = encoder(
                 inputs=inputs2,
                 inputs_positions=inputs2_positions,
+                inputs_segmentation=inputs2_segmentation,
                 train=train)
 
         encoded = common_layers.classifier_head_dual(

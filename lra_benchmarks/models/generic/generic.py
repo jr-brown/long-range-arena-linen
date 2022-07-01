@@ -20,8 +20,9 @@ class GenericBlock(nn.Module):
     attention_module_kwargs: Optional[dict]=None
 
     @nn.compact
-    def __call__(self, inputs, *, causal_mask: bool=False, padding_mask=None,
-                 deterministic: bool=False, attention_kwargs: Optional[dict[str, Any]]=None):
+    def __call__(self, inputs, *, inputs_segmentation=None, causal_mask: bool=False,
+                 padding_mask=None, deterministic: bool=False,
+                 attention_kwargs: Optional[dict[str, Any]]=None):
         """Applies GenericBlock module.
 
         Args:
@@ -53,8 +54,8 @@ class GenericBlock(nn.Module):
                 broadcast_dropout=False,
                 dropout_rate=self.attention_dropout_rate,
                 **attention_module_kwargs
-        )(x, causal_mask=causal_mask, padding_mask=padding_mask, deterministic=deterministic,
-          **attention_kwargs)
+        )(x, segmentation=inputs_segmentation,causal_mask=causal_mask, padding_mask=padding_mask,
+          deterministic=deterministic, **attention_kwargs)
         x = nn.Dropout(rate=self.dropout_rate)(x, deterministic=deterministic)
         x = x + inputs
 

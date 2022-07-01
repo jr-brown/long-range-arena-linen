@@ -51,7 +51,7 @@ class TransformerEncoder(nn.Module):
             self._max_len = self.max_len
 
     @nn.compact
-    def __call__(self, inputs, inputs_positions=None, train=True):
+    def __call__(self, inputs, *, inputs_positions=None, inputs_segmentation=None, train=True):
         """Applies Transformer model on the inputs.
 
         Args:
@@ -130,7 +130,8 @@ class TransformerEncoder(nn.Module):
                     attention_dropout_rate=self.attention_dropout_rate,
                     name='encoderblock')
             for _ in range(self.num_layers):
-                x = encoder(x, padding_mask=src_padding_mask, deterministic=not train)
+                x = encoder(x, inputs_segmentation=inputs_segmentation,
+                            padding_mask=src_padding_mask, deterministic=not train)
         else:
             for lyr in range(self.num_layers):
                 x = generic.GenericBlock(

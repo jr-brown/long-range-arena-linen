@@ -23,72 +23,6 @@ from lra_benchmarks.models.longformer import longformer_attention
 from lra_benchmarks.models.generic import generic
 
 
-class LongformerBlock(nn.Module):
-    """Longformer Layer."""
-
-    qkv_dim: Any
-    mlp_dim: Any
-    num_heads: Any
-    sliding_window_size: Any=512
-    dtype: Any=jnp.float32
-    inputs_segmentation: Any=None
-    dropout_rate: Any=0.1
-    attention_dropout_rate: Any=0.1
-
-    @nn.compact
-    def __call__(self, inputs, *, global_mask=None, causal_mask: bool=False, padding_mask=None,
-                 deterministic: bool=False):
-        """Applies the LongformerBlock module.
-
-        Args:
-            inputs: input data of size `[bs, seq_len, features]`.
-            qkv_dim: dimension of the query/key/value.
-            mlp_dim: dimension of the mlp on top of attention block.
-            num_heads: number of attention heads.
-            sliding_window_size: size of sliding window attention to use.
-            global_mask: boolean matrix of shape `[bs, seq_len]`, where `True`
-                indicates that the position is globally attended. By default, no global
-                attention is used.
-            causal_mask: If true, apply causal attention mask.
-            dtype: the dtype of the computation (default: float32).
-            inputs_segmentation: input segmentation info for packed examples.
-            padding_mask: bool, mask padding tokens.
-            dropout_rate: dropout rate
-            attention_dropout_rate: dropout rate for attention weights
-            deterministic: if true, apply dropout else don't.
-
-        Returns:
-            output of shape `[bs, seq_len, mlp_dim]`.
-        """
-
-        assert inputs.ndim == 3
-        x = nn.LayerNorm()(inputs)
-        x = longformer_attention.LongformerSelfAttention(
-                num_heads=self.num_heads,
-                qkv_features=self.qkv_dim,
-                sliding_window_size=self.sliding_window_size,
-                dtype=self.dtype,
-                segmentation=self.inputs_segmentation,
-                kernel_init=jnn.initializers.xavier_uniform(),
-                bias_init=jnn.initializers.normal(stddev=1e-6),
-                bias=False,
-                broadcast_dropout=False,
-                dropout_rate=self.attention_dropout_rate,
-        )(x, causal_mask=causal_mask, global_mask=global_mask, padding_mask=padding_mask,
-          deterministic=deterministic)
-        x = nn.Dropout(rate=self.dropout_rate)(x, deterministic=deterministic)
-        x = x + inputs
-
-        y = nn.LayerNorm(x)
-        y = common_layers.MlpBlock(
-                mlp_dim=self.mlp_dim,
-                dtype=self.dtype,
-                dropout_rate=self.dropout_rate
-        )(x, deterministic=deterministic)
-
-        return x + y
-
-
 class LongformerEncoder(nn.Module):
     """Longformer Encoder."""
 
@@ -192,7 +126,6 @@ class LongformerEncoder(nn.Module):
 
         attention_module_kwargs = {
             "sliding_window_size": self.sliding_window_size,
-            "segmentation": inputs_segmentation
         }
 
         attention_kwargs = {
@@ -211,7 +144,8 @@ class LongformerEncoder(nn.Module):
                     attention_dropout_rate=self.attention_dropout_rate,
                     name=f'encoderblock_{lyr}',
                     attention_module_kwargs=attention_module_kwargs
-            )(x, causal_mask=causal_mask, padding_mask=src_padding_mask, deterministic=not train,
+            )(x, inputs_segmentation=inputs_segmentation, causal_mask=causal_mask,
+              padding_mask=src_padding_mask, deterministic=not train,
               attention_kwargs=attention_kwargs)
         encoded = nn.LayerNorm(dtype=dtype, name='encoder_norm')(x)
 
@@ -225,8 +159,6 @@ class LongformerDualEncoder(nn.Module):
     """Longformer Model for Matching (dual encoding) tasks."""
 
     vocab_size: Any=None
-    inputs1_segmentation=None
-    inputs2_segmentation=None
     use_bfloat16: Any=False
     emb_dim: Any=512
     num_heads: Any=8
@@ -242,8 +174,8 @@ class LongformerDualEncoder(nn.Module):
     interaction: Any=None
 
     @nn.compact
-    def __call__(self, inputs1, inputs2, inputs1_positions=None, inputs2_positions=None,
-                 train: bool=False):
+    def __call__(self, inputs1, inputs2, *, inputs1_positions=None, inputs2_positions=None,
+                 inputs1_segmentation=None, inputs2_segmentation=None, train: bool=False):
         """Applies Transformer model on text similarity.
 
         A deliberate choice to distinguish this from NLI because
@@ -292,12 +224,12 @@ class LongformerDualEncoder(nn.Module):
         inputs1_encoded = encoder(
                 inputs=inputs1,
                 inputs_positions=inputs1_positions,
-                inputs_segmentation=self.inputs1_segmentation,
+                inputs_segmentation=inputs1_segmentation,
                 train=train)
         inputs2_encoded = encoder(
                 inputs=inputs2,
                 inputs_positions=inputs2_positions,
-                inputs_segmentation=self.inputs2_segmentation,
+                inputs_segmentation=inputs2_segmentation,
                 train=train)
 
         encoded = common_layers.classifier_head_dual(
