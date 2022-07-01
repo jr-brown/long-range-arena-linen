@@ -16,6 +16,7 @@ from typing import Any
 from functools import partial
 
 from flax import linen as nn
+import jax.numpy as jnp
 
 from lra_benchmarks.models.local import local_attention
 from lra_benchmarks.models.generic import generic
@@ -27,6 +28,7 @@ class LocalTransformerEncoder(nn.Module):
     vocab_size: Any
     shared_embedding: Any=None
     use_bfloat16: Any=False
+    dtype: Any=jnp.float32
     emb_dim: Any=512
     num_heads: Any=8
     num_layers: Any=6
@@ -62,6 +64,7 @@ class LocalTransformerEncoder(nn.Module):
             vocab_size=self.vocab_size,
             shared_embedding=self.shared_embedding,
             use_bfloat16=self.use_bfloat16,
+            dtype=self.dtype,
             emb_dim=self.emb_dim,
             num_heads=self.num_heads,
             num_layers=self.num_layers,

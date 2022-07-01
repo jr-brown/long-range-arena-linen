@@ -17,9 +17,7 @@ from functools import partial
 
 from flax import linen as nn
 import jax.numpy as jnp
-import jax.nn as jnn
 
-from lra_benchmarks.models.layers import common_layers
 from lra_benchmarks.models.longformer import longformer_attention
 from lra_benchmarks.models.generic import generic
 
@@ -54,106 +52,44 @@ class LongformerEncoder(nn.Module):
     @nn.compact
     def __call__(self, inputs, *, global_mask=None, causal_mask: bool=False, inputs_positions=None,
                  inputs_segmentation=None, train=True):
-        """Applies Longformer model on the inputs.
+        block = generic.GenericBlock
 
-        Args:
-            inputs: input data.
-            vocab_size: size of the vocabulary.
-            sliding_window_size: size of sliding window attention to use.
-            global_mask: boolean matrix of shape `[bs, seq_len]`, where `True`
-                indicates that the position is globally attended. By default, no global
-                attention is used.
-            causal_mask: If true, apply causal attention masking.
-            inputs_positions: input subsequence positions for packed examples.
-            inputs_segmentation: input segmentation info for packed examples.
-            shared_embedding: a shared embedding layer to use.
-            use_bfloat16: bool: whether use bfloat16.
-            emb_dim: dimension of embedding
-            num_heads: number of heads
-            dtype: the dtype of the computation (default: float32)
-            num_layers: number of layers
-            qkv_dim: dimension of the query/key/value
-            mlp_dim: dimension of the mlp on top of attention block
-            max_len: maximum length.
-            train: if it is training,
-            dropout_rate: dropout rate
-            attention_dropout_rate: dropout rate for attention weights
-            learn_pos_emb: boolean, if learn the positional embedding or use the
-                sinusoidal positional embedding.
-            classifier: boolean, for classification mode (output N-class logits)
-            classifier_pool: str, supports "MEAN", "MAX" pooling.
-            num_classes: int, number of classification classes.
-
-        Returns:
-            output of the encoder or logits if classifier_mode is true.
-        """
-        assert inputs.ndim == 2  # (batch, len)
-
-        # Padding Masks
-        src_padding_mask = (inputs > 0)[..., None]  # (batch, len, 1)
-        src_padding_mask = jnp.reshape(src_padding_mask, inputs.shape)  # (batch, len)
-
-        # Input Embedding
-        if self.shared_embedding is None:
-            input_embed = nn.Embed(
-                    num_embeddings=self.vocab_size,
-                    features=self.emb_dim,
-                    embedding_init=jnn.initializers.normal(stddev=1.0))
-        else:
-            input_embed = self.shared_embedding
-        x = inputs.astype('int32')
-        x = input_embed(x)
-
-        if self.classifier and self.classifier_pool == 'CLS':
-            cls = self.param('cls', jnn.initializers.zeros, (1, 1, self.emb_dim))
-            cls = jnp.tile(cls, [x.shape[0], 1, 1])
-            x = jnp.concatenate([cls, x], axis=1)
-            src_padding_mask = jnp.concatenate(
-                    [src_padding_mask[:, :1], src_padding_mask], axis=1)
-
-        pe_init = jnn.initializers.normal(stddev=0.02) if self.learn_pos_emb else None
-        x = common_layers.AddPositionEmbs(
-                inputs_positions=inputs_positions,
-                posemb_init=pe_init,
-                max_len=self._max_len,
-                name='posembed_input')(x)
-        x = nn.Dropout(rate=self.dropout_rate)(x, deterministic=not train)
-
-        if self.use_bfloat16:
-            x = x.astype(jnp.bfloat16)
-            dtype = jnp.bfloat16
-        else:
-            dtype = jnp.float32
-
-        attention_module_kwargs = {
-            "sliding_window_size": self.sliding_window_size,
+        block_module_kwargs = {
+            "attention_module": longformer_attention.LongformerSelfAttention,
+            "attention_module_kwargs" : {
+                "sliding_window_size": self.sliding_window_size
+            }
         }
 
-        attention_kwargs = {
-            "global_mask": global_mask
+        block_kwargs = {
+            "causal_mask": causal_mask,
+            "attention_kwargs": {
+                "global_mask": global_mask,
+            }
         }
 
-        # Input Encoder
-        for lyr in range(self.num_layers):
-            x = generic.GenericBlock(
-                    attention_module=longformer_attention.LongformerSelfAttention,
-                    qkv_dim=self.qkv_dim,
-                    mlp_dim=self.mlp_dim,
-                    num_heads=self.num_heads,
-                    dtype=dtype,
-                    dropout_rate=self.dropout_rate,
-                    attention_dropout_rate=self.attention_dropout_rate,
-                    name=f'encoderblock_{lyr}',
-                    attention_module_kwargs=attention_module_kwargs
-            )(x, inputs_segmentation=inputs_segmentation, causal_mask=causal_mask,
-              padding_mask=src_padding_mask, deterministic=not train,
-              attention_kwargs=attention_kwargs)
-        encoded = nn.LayerNorm(dtype=dtype, name='encoder_norm')(x)
-
-        if self.classifier:
-            encoded = common_layers.classifier_head(
-                    encoded, self.num_classes, self.mlp_dim, pooling_mode=self.classifier_pool)
-        return encoded
+        x = generic.GenericEncoder(
+            block_module=block,
+            vocab_size=self.vocab_size,
+            shared_embedding=self.shared_embedding,
+            use_bfloat16=self.use_bfloat16,
+            dtype=self.dtype,
+            emb_dim=self.emb_dim,
+            num_heads=self.num_heads,
+            num_layers=self.num_layers,
+            qkv_dim=self.qkv_dim,
+            mlp_dim=self.mlp_dim,
+            max_len=self.max_len,
+            dropout_rate=self.dropout_rate,
+            attention_dropout_rate=self.attention_dropout_rate,
+            learn_pos_emb=self.learn_pos_emb,
+            classifier=self.classifier,
+            classifier_pool=self.classifier_pool,
+            num_classes=self.num_classes,
+            block_module_kwargs=block_module_kwargs
+        )(inputs, inputs_positions=inputs_positions, inputs_segmentation=inputs_segmentation,
+          train=train, block_kwargs=block_kwargs)
+        return x
 
 
 LongformerDualEncoder = partial(generic.GenericDualEncoder,

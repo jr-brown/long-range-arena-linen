@@ -77,9 +77,9 @@ class GenericEncoder(nn.Module):
     vocab_size: Any
     shared_embedding: Any=None
     use_bfloat16: Any=False
+    dtype: Any=jnp.float32
     emb_dim: Any=512
     num_heads: Any=8
-    dtype: Any=jnp.float32
     num_layers: Any=6
     qkv_dim: Any=512
     mlp_dim: Any=2048
