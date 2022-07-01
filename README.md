@@ -13,6 +13,7 @@ This is a fork of google's long-range arena that aims to update it to use the la
 ### Implemented Attention Mechanisms
 * Vanilla Transformer
 * Local Attention (C)
+* Longformer (C)
 
 ### Implemented Tasks
 * Text classification

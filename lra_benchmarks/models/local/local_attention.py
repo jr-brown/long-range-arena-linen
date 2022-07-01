@@ -91,18 +91,8 @@ class LocalAttention(nn.Module):
 
         # Done this way to avoid jnp.pad which doesn't work with jit
         def pad_f(x, val=0):
-            assert x.ndim == 3
-            new_x = jnp.full((x.shape[0], self.blocks_total_len, x.shape[-1]), val, dtype=x.dtype)
-            """
-            i, j = 0, 0
-            for ix in x:
-                for jx in ix:
-                    new_x = new_x.at[i,j].set(jx)
-                    j += 1
-                i += 1
-                j = 0
-            """
-            new_x = new_x.at[:,:orig_len,:].set(x)
+            new_x = jnp.full((x.shape[0], self.blocks_total_len, *x.shape[2:]), val, dtype=x.dtype)
+            new_x = new_x.at[:,:orig_len].set(x)
             return new_x
 
         inputs_q = pad_f(inputs_q)
@@ -126,13 +116,13 @@ class LocalAttention(nn.Module):
         head_dim = qkv_features // self.num_heads
 
         dense = partial(nn.DenseGeneral,
-                axis=-1,
-                features=(self.num_heads, head_dim),
-                kernel_init=self.kernel_init,
-                bias_init=self.bias_init,
-                use_bias=self.bias,
-                dtype=self.dtype,
-                precision=self.precision)
+                        axis=-1,
+                        features=(self.num_heads, head_dim),
+                        kernel_init=self.kernel_init,
+                        bias_init=self.bias_init,
+                        use_bias=self.bias,
+                        dtype=self.dtype,
+                        precision=self.precision)
 
         # project inputs_q to multi-headed q/k/v
         # dimensions are then [bs, dims..., n_heads, n_features_per_head]
@@ -161,14 +151,12 @@ class LocalAttention(nn.Module):
             mask_components.append(nn.make_causal_mask(key))
 
         if padding_mask is not None:
-            assert padding_mask.shape[-1] == 1 and len(padding_mask.shape) == 3
             padding_mask = jnp.reshape(padding_mask, (bs * num_query_blocks,
                                                       self.block_size))
 
             if key_padding_mask is None:
                 key_padding_mask = padding_mask
             else:
-                assert key_padding_mask.shape[-1] == 1 and len(key_padding_mask.shape) == 3
                 key_padding_mask = jnp.reshape(key_padding_mask,
                                                (bs*num_query_blocks, self.block_size))
 

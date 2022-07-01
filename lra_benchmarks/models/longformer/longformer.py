@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Longformer modules."""
-from functools import partial
 from typing import Any
 
 from flax import linen as nn
@@ -30,14 +29,13 @@ class LongformerBlock(nn.Module):
     mlp_dim: Any
     num_heads: Any
     sliding_window_size: Any=512
-    global_mask: Any=None
     dtype: Any=jnp.float32
     inputs_segmentation: Any=None
     dropout_rate: Any=0.1
     attention_dropout_rate: Any=0.1
 
     @nn.compact
-    def __call__(self, inputs, *, causal_mask: bool=False, padding_mask=None,
+    def __call__(self, inputs, *, global_mask=None, causal_mask: bool=False, padding_mask=None,
                  deterministic: bool=False):
         """Applies the LongformerBlock module.
 
@@ -63,12 +61,11 @@ class LongformerBlock(nn.Module):
         """
 
         assert inputs.ndim == 3
-        x = nn.LayerNorm(inputs)
+        x = nn.LayerNorm()(inputs)
         x = longformer_attention.LongformerSelfAttention(
                 num_heads=self.num_heads,
                 qkv_features=self.qkv_dim,
                 sliding_window_size=self.sliding_window_size,
-                global_mask=self.global_mask,
                 dtype=self.dtype,
                 segmentation=self.inputs_segmentation,
                 kernel_init=jnn.initializers.xavier_uniform(),
@@ -76,7 +73,8 @@ class LongformerBlock(nn.Module):
                 bias=False,
                 broadcast_dropout=False,
                 dropout_rate=self.attention_dropout_rate,
-        )(x, causal_mask=causal_mask, padding_mask=padding_mask, deterministic=deterministic)
+        )(x, causal_mask=causal_mask, global_mask=global_mask, padding_mask=padding_mask,
+          deterministic=deterministic)
         x = nn.Dropout(rate=self.dropout_rate)(x, deterministic=deterministic)
         x = x + inputs
 
@@ -95,10 +93,6 @@ class LongformerEncoder(nn.Module):
 
     vocab_size: Any
     sliding_window_size: Any=512
-    global_mask: Any=None
-    causal_mask: Any=False
-    inputs_positions: Any=None
-    inputs_segmentation: Any=None
     shared_embedding: Any=None
     use_bfloat16: Any=False
     emb_dim: Any=512
@@ -108,7 +102,6 @@ class LongformerEncoder(nn.Module):
     qkv_dim: Any=512
     mlp_dim: Any=2048
     max_len: Any=512
-    train: Any=True
     dropout_rate: Any=0.1
     attention_dropout_rate: Any=0.1
     learn_pos_emb: Any=False
@@ -116,7 +109,15 @@ class LongformerEncoder(nn.Module):
     classifier_pool: Any='CLS'
     num_classes: Any=10
 
-    def apply(self, inputs, *, global_mask=None, causal_mask: bool=False,
+    def setup(self):
+        if self.classifier and self.classifier_pool == 'CLS':
+            self._max_len = self.max_len + 1
+        else:
+            self._max_len = self.max_len
+
+    @nn.compact
+    def __call__(self, inputs, *, global_mask=None, causal_mask: bool=False, inputs_positions=None,
+                 inputs_segmentation=None, train=True):
         """Applies Longformer model on the inputs.
 
         Args:
@@ -153,93 +154,86 @@ class LongformerEncoder(nn.Module):
         assert inputs.ndim == 2  # (batch, len)
 
         # Padding Masks
-        src_padding_mask = (inputs > 0)[..., None]
+        src_padding_mask = (inputs > 0)[..., None]  # (batch, len, 1)
+        src_padding_mask = jnp.reshape(src_padding_mask, inputs.shape)  # (batch, len)
 
         # Input Embedding
-        if shared_embedding is None:
-            input_embed = partial(nn.Embed,
-                    num_embeddings=vocab_size,
-                    features=emb_dim,
+        if self.shared_embedding is None:
+            input_embed = nn.Embed(
+                    num_embeddings=self.vocab_size,
+                    features=self.emb_dim,
                     embedding_init=jnn.initializers.normal(stddev=1.0))
         else:
-            input_embed = shared_embedding
+            input_embed = self.shared_embedding
         x = inputs.astype('int32')
         x = input_embed(x)
 
-        if classifier and classifier_pool == 'CLS':
-            cls = self.param('cls', jnn.initializers.zeros, (1, 1, emb_dim))
+        if self.classifier and self.classifier_pool == 'CLS':
+            cls = self.param('cls', jnn.initializers.zeros, (1, 1, self.emb_dim))
             cls = jnp.tile(cls, [x.shape[0], 1, 1])
             x = jnp.concatenate([cls, x], axis=1)
-            max_len += 1
             src_padding_mask = jnp.concatenate(
                     [src_padding_mask[:, :1], src_padding_mask], axis=1)
 
-        pe_init = jnn.initializers.normal(stddev=0.02) if learn_pos_emb else None
+        pe_init = jnn.initializers.normal(stddev=0.02) if self.learn_pos_emb else None
         x = common_layers.AddPositionEmbs(
-                x,
                 inputs_positions=inputs_positions,
                 posemb_init=pe_init,
-                max_len=max_len,
-                name='posembed_input')
-        x = nn.Dropout(rate=dropout_rate)(x, deterministic=not train)
+                max_len=self._max_len,
+                name='posembed_input')(x)
+        x = nn.Dropout(rate=self.dropout_rate)(x, deterministic=not train)
 
-        if use_bfloat16:
+        if self.use_bfloat16:
             x = x.astype(jnp.bfloat16)
             dtype = jnp.bfloat16
         else:
             dtype = jnp.float32
 
         # Input Encoder
-        for lyr in range(num_layers):
+        for lyr in range(self.num_layers):
             x = LongformerBlock(
-                    x,
-                    qkv_dim=qkv_dim,
-                    mlp_dim=mlp_dim,
-                    num_heads=num_heads,
-                    sliding_window_size=sliding_window_size,
-                    global_mask=global_mask,
-                    causal_mask=causal_mask,
+                    qkv_dim=self.qkv_dim,
+                    mlp_dim=self.mlp_dim,
+                    num_heads=self.num_heads,
+                    sliding_window_size=self.sliding_window_size,
                     dtype=dtype,
                     inputs_segmentation=inputs_segmentation,
-                    padding_mask=src_padding_mask,
-                    dropout_rate=dropout_rate,
-                    attention_dropout_rate=attention_dropout_rate,
-                    deterministic=not train,
-                    name=f'encoderblock_{lyr}')
-        encoded = nn.LayerNorm(x, dtype=dtype, name='encoder_norm')
+                    dropout_rate=self.dropout_rate,
+                    attention_dropout_rate=self.attention_dropout_rate,
+                    name=f'encoderblock_{lyr}'
+            )(x, global_mask=global_mask, causal_mask=causal_mask, padding_mask=src_padding_mask,
+              deterministic=not train)
+        encoded = nn.LayerNorm(dtype=dtype, name='encoder_norm')(x)
 
-        if classifier:
+        if self.classifier:
             encoded = common_layers.classifier_head(
-                    encoded, num_classes, mlp_dim, pooling_mode=classifier_pool)
+                    encoded, self.num_classes, self.mlp_dim, pooling_mode=self.classifier_pool)
         return encoded
 
 
 class LongformerDualEncoder(nn.Module):
     """Longformer Model for Matching (dual encoding) tasks."""
 
-    def apply(self,
-                        inputs1,
-                        inputs2,
-                        vocab_size=None,
-                        inputs1_positions=None,
-                        inputs2_positions=None,
-                        inputs1_segmentation=None,
-                        inputs2_segmentation=None,
-                        use_bfloat16=False,
-                        emb_dim=512,
-                        num_heads=8,
-                        num_layers=6,
-                        qkv_dim=512,
-                        mlp_dim=2048,
-                        max_len=2048,
-                        train=False,
-                        dropout_rate=0.1,
-                        attention_dropout_rate=0.1,
-                        classifier=True,
-                        classifier_pool='CLS',
-                        num_classes=2,
-                        interaction=None
-                        ):
+    vocab_size: Any=None
+    inputs1_segmentation=None
+    inputs2_segmentation=None
+    use_bfloat16: Any=False
+    emb_dim: Any=512
+    num_heads: Any=8
+    num_layers: Any=6
+    qkv_dim: Any=512
+    mlp_dim: Any=2048
+    max_len: Any=2048
+    dropout_rate: Any=0.1
+    attention_dropout_rate: Any=0.1
+    classifier: Any=True
+    classifier_pool: Any='CLS'
+    num_classes: Any=2
+    interaction: Any=None
+
+    @nn.compact
+    def __call__(self, inputs1, inputs2, inputs1_positions=None, inputs2_positions=None,
+                 train: bool=False):
         """Applies Transformer model on text similarity.
 
         A deliberate choice to distinguish this from NLI because
@@ -272,31 +266,37 @@ class LongformerDualEncoder(nn.Module):
         Returns:
             output of a transformer decoder.
         """
-        encoder = LongformerEncoder.shared(
-                inputs_positions=inputs1_positions,
-                inputs_segmentation=inputs1_segmentation,
-                vocab_size=vocab_size,
-                use_bfloat16=use_bfloat16,
-                emb_dim=emb_dim,
-                num_heads=num_heads,
-                num_layers=num_layers,
-                qkv_dim=qkv_dim,
-                mlp_dim=mlp_dim,
-                max_len=max_len,
-                train=train,
-                dropout_rate=dropout_rate,
-                attention_dropout_rate=attention_dropout_rate,
+
+        encoder = LongformerEncoder(
+                vocab_size=self.vocab_size,
+                use_bfloat16=self.use_bfloat16,
+                emb_dim=self.emb_dim,
+                num_heads=self.num_heads,
+                num_layers=self.num_layers,
+                qkv_dim=self.qkv_dim,
+                mlp_dim=self.mlp_dim,
+                max_len=self.max_len,
+                dropout_rate=self.dropout_rate,
+                attention_dropout_rate=self.attention_dropout_rate,
                 name='encoder')
-        inputs1_encoded = encoder(inputs1)
-        inputs2_encoded = encoder(inputs2)
+        inputs1_encoded = encoder(
+                inputs=inputs1,
+                inputs_positions=inputs1_positions,
+                inputs_segmentation=self.inputs1_segmentation,
+                train=train)
+        inputs2_encoded = encoder(
+                inputs=inputs2,
+                inputs_positions=inputs2_positions,
+                inputs_segmentation=self.inputs2_segmentation,
+                train=train)
 
         encoded = common_layers.classifier_head_dual(
                 inputs1_encoded,
                 inputs2_encoded,
-                num_classes,
-                mlp_dim,
-                pooling_mode=classifier_pool,
-                interaction=interaction)
+                self.num_classes,
+                self.mlp_dim,
+                pooling_mode=self.classifier_pool,
+                interaction=self.interaction)
 
         return encoded
 
@@ -304,22 +304,21 @@ class LongformerDualEncoder(nn.Module):
 class LongformerDecoder(nn.Module):
     """Longformer Decoder."""
 
-    def apply(self,
-                        inputs,
-                        vocab_size,
-                        sliding_window_size=512,
-                        global_mask=None,
-                        emb_dim=512,
-                        num_heads=8,
-                        dtype=jnp.float32,
-                        num_layers=6,
-                        qkv_dim=512,
-                        mlp_dim=2048,
-                        max_len=2048,
-                        train=False,
-                        shift=True,
-                        dropout_rate=0.1,
-                        attention_dropout_rate=0.1):
+    vocab_size: Any
+    sliding_window_size: Any=512
+    emb_dim: Any=512
+    num_heads: Any=8
+    dtype: Any=jnp.float32
+    num_layers: Any=6
+    qkv_dim: Any=512
+    mlp_dim: Any=2048
+    max_len: Any=2048
+    shift: Any=True
+    dropout_rate: Any=0.1
+    attention_dropout_rate: Any=0.1
+
+    @nn.compact
+    def __call__(self, inputs, *, global_mask=None, train: bool=False):
         """Applies Longformer model on the inputs, using causal masking.
 
         Args:
@@ -348,37 +347,28 @@ class LongformerDecoder(nn.Module):
         padding_mask = jnp.where(inputs > 0, 1, 0).astype(jnp.float32)[..., None]
         assert inputs.ndim == 2  # (batch, len)
         x = inputs
-        if shift:
-            raise NotImplementedError
+        if self.shift:
             x = common_layers.shift_right(x)
         x = x.astype('int32')
-        x = common_layers.Embed(
-                x, num_embeddings=vocab_size, features=emb_dim, name='embed')
+        x = common_layers.Embed(num_embeddings=self.vocab_size, features=self.emb_dim,
+                                name='embed')(x)
         x = common_layers.AddPositionEmbs(
-                x,
-                max_len=max_len,
-                posemb_init=common_layers.sinusoidal_init(max_len=max_len),
-                cache=None)
-        x = nn.Dropout(rate=dropout_rate)(x, deterministic=not train)
-        for _ in range(num_layers):
+                max_len=self.max_len,
+                posemb_init=common_layers.sinusoidal_init(max_len=self.max_len))(x)
+        x = nn.Dropout(rate=self.dropout_rate)(x, deterministic=not train)
+        for _ in range(self.num_layers):
             x = LongformerBlock(
-                    x,
-                    qkv_dim=qkv_dim,
-                    mlp_dim=mlp_dim,
-                    num_heads=num_heads,
-                    sliding_window_size=sliding_window_size,
-                    global_mask=global_mask,
-                    causal_mask=True,
-                    padding_mask=padding_mask,
-                    dropout_rate=dropout_rate,
-                    attention_dropout_rate=attention_dropout_rate,
-                    deterministic=not train,
-                    cache=None,
-            )
-        x = nn.LayerNorm(x)
+                    qkv_dim=self.qkv_dim,
+                    mlp_dim=self.mlp_dim,
+                    num_heads=self.num_heads,
+                    sliding_window_size=self.sliding_window_size,
+                    dropout_rate=self.dropout_rate,
+                    attention_dropout_rate=self.attention_dropout_rate
+            )(x, global_mask=global_mask, causal_mask=True, padding_mask=padding_mask,
+              deterministic=not train)
+        x = nn.LayerNorm()(x)
         logits = nn.Dense(
-                x,
-                vocab_size,
+                self.vocab_size,
                 kernel_init=jnn.initializers.xavier_uniform(),
-                bias_init=jnn.initializers.normal(stddev=1e-6))
+                bias_init=jnn.initializers.normal(stddev=1e-6))(x)
         return logits

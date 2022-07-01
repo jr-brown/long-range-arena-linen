@@ -42,7 +42,7 @@ def _build_global_mask(mask):
         seq_len]`.
     """
     return jnp.logical_or(mask[:, jnp.newaxis, :, jnp.newaxis],
-                                                mask[:, jnp.newaxis, jnp.newaxis, :])
+                          mask[:, jnp.newaxis, jnp.newaxis, :])
 
 
 def _build_sliding_window_mask(window_size, global_mask):
@@ -92,13 +92,10 @@ def _get_attention_result(query,
 
     mask_components = [] if mask is None else [mask]
 
-    seq_len = query.shape[1]
-
     if apply_causal_mask:
-        causal_mask = jnp.array(
-                np.reshape(np.tri(seq_len, k=0),
-                                      [1, 1, seq_len, seq_len])).astype(jnp.bool_)
+        causal_mask = nn.make_causal_mask(jnp.zeros(query.shape[:-2]))
         mask_components.append(causal_mask)
+
     if padding_mask is not None:
         if key_padding_mask is None:
             key_padding_mask = padding_mask
@@ -140,7 +137,6 @@ class LongformerAttention(nn.Module):
 
     num_heads: Any
     sliding_window_size: Any=512
-    global_mask: Any=None
     dtype: Any=jnp.float32
     qkv_features: Any=None
     out_features: Any=None
@@ -155,8 +151,8 @@ class LongformerAttention(nn.Module):
     bias: Any=True
 
     @nn.compact
-    def __call__(self, inputs_q, inputs_kv=None, *, causal_mask: bool=False, padding_mask=None,
-                              key_padding_mask=None, deterministic: bool=False):
+    def __call__(self, inputs_q, inputs_kv=None, *, global_mask=None, causal_mask: bool=False, padding_mask=None,
+                 key_padding_mask=None, deterministic: bool=False):
         """Applies longformer multi-head dot product attention on the input data.
 
         Args:
@@ -206,7 +202,7 @@ class LongformerAttention(nn.Module):
                 features=(self.num_heads, head_dim),
                 kernel_init=self.kernel_init,
                 bias_init=self.bias_init,
-                bias=self.bias,
+                use_bias=self.bias,
                 dtype=self.dtype,
                 precision=self.precision)
 
@@ -218,15 +214,18 @@ class LongformerAttention(nn.Module):
         key_global = dense(name='key_global')(inputs_kv)
         value_global = dense(name='value_global')(inputs_kv)
 
-        if self.global_mask is None:
+        if global_mask is None:
             global_mask = jnp.full((batch_size, seq_len), False)
-        else:
-            global_mask = self.global_mask
 
         full_global_mask = _build_global_mask(global_mask)
 
         sliding_window_mask = _build_sliding_window_mask(
                 window_size=self.sliding_window_size, global_mask=global_mask)
+
+        if self.dropout_rng is None and not deterministic:
+            dropout_rng = self.make_rng('dropout')
+        else:
+            dropout_rng = self.dropout_rng
 
         x_sw = _get_attention_result(
                 query=query_sw,
@@ -234,7 +233,7 @@ class LongformerAttention(nn.Module):
                 value=value_sw,
                 dtype=self.dtype,
                 precision=self.precision,
-                dropout_rng=self.dropout_rng,
+                dropout_rng=dropout_rng,
                 dropout_rate=self.dropout_rate,
                 broadcast_dropout=self.broadcast_dropout,
                 deterministic=deterministic,
@@ -251,7 +250,7 @@ class LongformerAttention(nn.Module):
                 value=value_global,
                 dtype=self.dtype,
                 precision=self.precision,
-                dropout_rng=self.dropout_rng,
+                dropout_rng=dropout_rng,
                 dropout_rate=self.dropout_rate,
                 broadcast_dropout=self.broadcast_dropout,
                 deterministic=deterministic,
@@ -262,7 +261,7 @@ class LongformerAttention(nn.Module):
                 key_segmentation=self.key_segmentation,
                 apply_causal_mask=causal_mask)
 
-        x = jnp.where(self.global_mask[:, :, jnp.newaxis, jnp.newaxis], x_global, x_sw)
+        x = jnp.where(global_mask[:, :, jnp.newaxis, jnp.newaxis], x_global, x_sw)
 
         # back to the original inputs dimensions
         out = nn.DenseGeneral(
@@ -270,12 +269,14 @@ class LongformerAttention(nn.Module):
                 axis=(-2, -1),
                 kernel_init=self.kernel_init,
                 bias_init=self.bias_init,
-                bias=self.bias,
+                use_bias=self.bias,
                 dtype=self.dtype,
                 precision=self.precision,
                 name='out')(x)
 
         return out
 
+class LongformerSelfAttention(LongformerAttention):
+    def __call__(self, inputs, **kwargs):
+        return super().__call__(inputs, inputs_kv=None, **kwargs)
 
-LongformerSelfAttention = partial(LongformerAttention, inputs_kv=None)

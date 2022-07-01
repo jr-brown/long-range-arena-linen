@@ -227,3 +227,7 @@ def classifier_head_dual(encoded1, encoded2, num_classes, mlp_dim, pooling_mode=
     encoded = nn.relu(encoded)
     encoded = nn.Dense(num_classes, name='logits')(encoded)
     return encoded
+
+def shift_right(x):
+    raise NotImplementedError
+

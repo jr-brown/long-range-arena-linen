@@ -60,10 +60,7 @@ class TransformerBlock(nn.Module):
         assert inputs.ndim == 3
         x = nn.LayerNorm()(inputs)
 
-        # Converts padding_mask.shape from (batch_size, length, 1)
-        # to (batch_size, num_heads, length, length)
-        p_mask = padding_mask.reshape(padding_mask.shape[:-1])
-        mask = nn.make_attention_mask(p_mask, p_mask)
+        mask = nn.make_attention_mask(padding_mask, padding_mask)
 
         if causal_mask:
             mask = nn.combine_masks(mask, nn.make_causal_mask(x))
@@ -152,6 +149,7 @@ class TransformerEncoder(nn.Module):
 
         # Padding Masks
         src_padding_mask = (inputs > 0)[..., None]
+        src_padding_mask = jnp.reshape(src_padding_mask, inputs.shape)  # (batch, len)
 
         # Input Embedding
         if self.shared_embedding is None:

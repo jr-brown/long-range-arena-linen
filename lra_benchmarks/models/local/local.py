@@ -147,6 +147,7 @@ class LocalTransformerEncoder(nn.Module):
 
         # Padding Masks
         src_padding_mask = (inputs > 0)[..., None]
+        src_padding_mask = jnp.reshape(src_padding_mask, inputs.shape)  # (batch, len)
 
         # Input Embedding
         if self.shared_embedding is None:
@@ -327,10 +328,10 @@ class LocalTransformerDecoder(nn.Module):
         assert inputs.ndim == 2  # (batch, len)
         x = inputs
         if self.shift:
-            raise NotImplementedError
-            # x = common_layers.shift_right(x)
+            x = common_layers.shift_right(x)
         x = x.astype('int32')
-        x = common_layers.Embed(num_embeddings=self.vocab_size, features=self.emb_dim, name='embed')(x)
+        x = common_layers.Embed(num_embeddings=self.vocab_size, features=self.emb_dim,
+                                name='embed')(x)
         x = common_layers.AddPositionEmbs(
                 max_len=self.max_len,
                 posemb_init=common_layers.sinusoidal_init(max_len=self.max_len))(x)
@@ -344,7 +345,7 @@ class LocalTransformerDecoder(nn.Module):
                     attention_dropout_rate=self.attention_dropout_rate,
                     block_size=self.block_size
             )(x, causal_mask=True, padding_mask=padding_mask, deterministic=not train)
-        x = nn.LayerNorm(x)
+        x = nn.LayerNorm()(x)
         logits = nn.Dense(
                 self.vocab_size,
                 kernel_init=jnn.initializers.xavier_uniform(),
