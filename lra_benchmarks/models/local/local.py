@@ -165,55 +165,21 @@ class LocalTransformerDecoder(nn.Module):
 
     @nn.compact
     def __call__(self, inputs, train: bool=False):
-        """Applies Local Attention model on the inputs.
+        block = partial(generic.GenericBlock, attention_module=local_attention.LocalSelfAttention)
+        block_module_kwargs={"attention_module_kwargs" : {"block_size": self.block_size}}
+        x = generic.GenericDecoder(
+            block_module=block,
+            vocab_size=self.vocab_size,
+            emb_dim=self.emb_dim,
+            num_heads=self.num_heads,
+            num_layers=self.num_layers,
+            qkv_dim=self.qkv_dim,
+            mlp_dim=self.mlp_dim,
+            max_len=self.max_len,
+            shift=self.shift,
+            dropout_rate=self.dropout_rate,
+            attention_dropout_rate=self.attention_dropout_rate,
+            block_module_kwargs=block_module_kwargs
+        )(inputs, train=train)
+        return x
 
-        Args:
-            inputs: input data
-            vocab_size: size of the vocabulary
-            emb_dim: dimension of embedding
-            num_heads: number of heads
-            num_layers: number of layers
-            qkv_dim: dimension of the query/key/value
-            mlp_dim: dimension of the mlp on top of attention block
-            max_len: maximum length.
-            train: bool: if model is training.
-            shift: bool: if we right-shift input - this is only disabled for
-                fast, looped single-token autoregressive decoding.
-            dropout_rate: dropout rate
-            attention_dropout_rate: dropout rate for attention weights
-            block_size: int, block size
-
-        Returns:
-            output of a transformer decoder.
-        """
-        padding_mask = jnp.where(inputs > 0, 1, 0).astype(jnp.float32)[..., None]
-        assert inputs.ndim == 2  # (batch, len)
-        x = inputs
-        if self.shift:
-            x = common_layers.shift_right(x)
-        x = x.astype('int32')
-        x = common_layers.Embed(num_embeddings=self.vocab_size, features=self.emb_dim,
-                                name='embed')(x)
-        x = common_layers.AddPositionEmbs(
-                max_len=self.max_len,
-                posemb_init=common_layers.sinusoidal_init(max_len=self.max_len))(x)
-        x = nn.Dropout(rate=self.dropout_rate)(x, deterministic=not train)
-
-        attention_module_kwargs = {"block_size": self.block_size}
-
-        for _ in range(self.num_layers):
-            x = generic.GenericBlock(
-                    attention_module=local_attention.LocalSelfAttention,
-                    qkv_dim=self.qkv_dim,
-                    mlp_dim=self.mlp_dim,
-                    num_heads=self.num_heads,
-                    dropout_rate=self.dropout_rate,
-                    attention_dropout_rate=self.attention_dropout_rate,
-                    attention_module_kwargs=attention_module_kwargs
-            )(x, causal_mask=True, padding_mask=padding_mask, deterministic=not train)
-        x = nn.LayerNorm()(x)
-        logits = nn.Dense(
-                self.vocab_size,
-                kernel_init=jnn.initializers.xavier_uniform(),
-                bias_init=jnn.initializers.normal(stddev=1e-6))(x)
-        return logits
