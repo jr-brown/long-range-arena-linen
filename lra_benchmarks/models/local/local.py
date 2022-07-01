@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Local Attention Transformer models."""
-from functools import partial
 from typing import Any
 
 from flax import linen as nn
