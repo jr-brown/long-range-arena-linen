@@ -181,7 +181,8 @@ class GenericDecoder(nn.Module):
     block_module_kwargs: Optional[dict[str, Any]]=None
 
     @nn.compact
-    def __call__(self, inputs, train: bool=False):
+    def __call__(self, inputs, *, train: bool=False,
+                 block_kwargs: Optional[dict[str, Any]]=None):
         """Applies Local Attention model on the inputs.
 
         Args:
@@ -208,6 +209,9 @@ class GenericDecoder(nn.Module):
         else:
             block_module_kwargs = self.block_module_kwargs
 
+        if block_kwargs is None:
+            block_kwargs = {}
+
         padding_mask = jnp.where(inputs > 0, 1, 0).astype(jnp.float32)[..., None]
         assert inputs.ndim == 2  # (batch, len)
         x = inputs
@@ -229,7 +233,8 @@ class GenericDecoder(nn.Module):
                     dropout_rate=self.dropout_rate,
                     attention_dropout_rate=self.attention_dropout_rate,
                     **block_module_kwargs
-            )(x, causal_mask=True, padding_mask=padding_mask, deterministic=not train)
+            )(x, causal_mask=True, padding_mask=padding_mask, deterministic=not train,
+              **block_kwargs)
         x = nn.LayerNorm()(x)
         logits = nn.Dense(
                 self.vocab_size,
