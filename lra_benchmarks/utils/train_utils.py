@@ -23,7 +23,7 @@ from lra_benchmarks.models.local import local
 from lra_benchmarks.models.longformer import longformer
 # from lra_benchmarks.models.performer import performer
 from lra_benchmarks.models.reformer import reformer
-# from lra_benchmarks.models.sinkhorn_transformer import sinkhorn_transformer
+from lra_benchmarks.models.sinkhorn_transformer import sinkhorn_transformer
 # from lra_benchmarks.models.sparse_transformer import sparse_attention
 # from lra_benchmarks.models.sparse_transformer import sparse_transformer
 # from lra_benchmarks.models.synthesizer import synthesizer
@@ -49,7 +49,8 @@ def get_model(model_type, create_model_fn, model_kwargs, *create_model_args):
         "local": local.LocalTransformerEncoder,
         "longformer": longformer.LongformerEncoder,
         "reformer": reformer.ReformerEncoder,
-        "linformer": linformer.LinformerEncoder
+        "linformer": linformer.LinformerEncoder,
+        "sinkhorn": sinkhorn_transformer.SinkhornTransformerEncoder
     }
 
     return create_model_fn(model_map[model_type], model_kwargs, *create_model_args)
@@ -63,9 +64,6 @@ def get_model(model_type, create_model_fn, model_kwargs, *create_model_args):
 #   elif model_type == 'bigbird':
 #     return create_model_fn(bigbird.BigBirdEncoder, model_kwargs,
 #                            *create_model_args)
-#   elif model_type == 'sinkhorn':
-#     return create_model_fn(sinkhorn_transformer.SinkhornTransformerEncoder,
-#                            model_kwargs, *create_model_args)
 #   elif model_type == 'linear_transformer':
 #     return create_model_fn(linear_transformer.LinearTransformerEncoder,
 #                            model_kwargs, *create_model_args)
