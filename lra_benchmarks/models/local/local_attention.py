@@ -126,12 +126,12 @@ class LocalAttention(nn.Module):
 
         # project inputs_q to multi-headed q/k/v
         # dimensions are then [bs, dims..., n_heads, n_features_per_head]
+        qd, kd, vd = dense(name='query'), dense(name='key'), dense(name='value')
+        query, key, value = (qd(inputs_q), kd(inputs_kv), vd(inputs_kv))
+
         qlength = inputs_q.shape[-2]
         bs = inputs_q.shape[0]
         kvlength = inputs_kv.shape[-2]
-
-        qd, kd, vd = dense(name='query'), dense(name='key'), dense(name='value')
-        query, key, value = (qd(inputs_q), kd(inputs_kv), vd(inputs_kv))
 
         # block reshape before attention
         num_query_blocks = qlength // self.block_size

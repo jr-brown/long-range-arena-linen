@@ -18,7 +18,7 @@ from flax.training import common_utils
 import jax.numpy as jnp
 # from lra_benchmarks.models.bigbird import bigbird
 # from lra_benchmarks.models.linear_transformer import linear_transformer
-# from lra_benchmarks.models.linformer import linformer
+from lra_benchmarks.models.linformer import linformer
 from lra_benchmarks.models.local import local
 from lra_benchmarks.models.longformer import longformer
 # from lra_benchmarks.models.performer import performer
@@ -48,7 +48,8 @@ def get_model(model_type, create_model_fn, model_kwargs, *create_model_args):
         "transformer": transformer.TransformerEncoder,
         "local": local.LocalTransformerEncoder,
         "longformer": longformer.LongformerEncoder,
-        "reformer": reformer.ReformerEncoder
+        "reformer": reformer.ReformerEncoder,
+        "linformer": linformer.LinformerEncoder
     }
 
     return create_model_fn(model_map[model_type], model_kwargs, *create_model_args)
@@ -58,9 +59,6 @@ def get_model(model_type, create_model_fn, model_kwargs, *create_model_args):
 #                            *create_model_args)
 #   elif model_type == 'performer':
 #     return create_model_fn(performer.PerformerEncoder, model_kwargs,
-#                            *create_model_args)
-#   elif model_type == 'linformer':
-#     return create_model_fn(linformer.LinformerEncoder, model_kwargs,
 #                            *create_model_args)
 #   elif model_type == 'bigbird':
 #     return create_model_fn(bigbird.BigBirdEncoder, model_kwargs,
