@@ -14,6 +14,7 @@ class MaskedSelfAttention(nn.Module):
     bias: Any=True
     broadcast_dropout: Any=True
     dropout_rate: Any=0.
+    max_len: int=512
 
     @nn.compact
     def __call__(self, x, *, segmentation=None, causal_mask: bool=False, padding_mask=None, deterministic: bool=False):

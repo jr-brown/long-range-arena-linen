@@ -147,6 +147,7 @@ class LongformerAttention(nn.Module):
     kernel_init: Any=nn.linear.default_kernel_init
     bias_init: Any=jnn.initializers.zeros
     bias: Any=True
+    max_len: int=512
 
     @nn.compact
     def __call__(self, inputs_q, inputs_kv=None, *, segmentation=None, key_segmentation=None,

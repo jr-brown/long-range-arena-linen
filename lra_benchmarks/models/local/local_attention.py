@@ -88,6 +88,8 @@ class LocalAttention(nn.Module):
             output of shape `[bs, dim1, dim2, ..., dimN, features]`.
         """
 
+        assert inputs_q.ndim == 3
+
         orig_len = inputs_q.shape[-2]
 
         # Done this way to avoid jnp.pad which doesn't work with jit
@@ -97,17 +99,14 @@ class LocalAttention(nn.Module):
             return new_x
 
         inputs_q = pad_f(inputs_q)
-        if inputs_kv is not None:
+        if inputs_kv is None:
+            inputs_kv = inputs_q
+        else:
             inputs_kv = pad_f(inputs_kv)
 
         # logging.info(padding_mask)
         padding_mask = pad_f(padding_mask, val=-1e9)
         # logging.info(inputs_q)
-
-        assert inputs_q.ndim == 3
-
-        if inputs_kv is None:
-            inputs_kv = inputs_q
 
         features = self.out_features or inputs_q.shape[-1]
         qkv_features = self.qkv_features or inputs_q.shape[-1]

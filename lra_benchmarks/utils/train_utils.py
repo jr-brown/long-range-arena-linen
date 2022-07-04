@@ -22,7 +22,7 @@ import jax.numpy as jnp
 from lra_benchmarks.models.local import local
 from lra_benchmarks.models.longformer import longformer
 # from lra_benchmarks.models.performer import performer
-# from lra_benchmarks.models.reformer import reformer
+from lra_benchmarks.models.reformer import reformer
 # from lra_benchmarks.models.sinkhorn_transformer import sinkhorn_transformer
 # from lra_benchmarks.models.sparse_transformer import sparse_attention
 # from lra_benchmarks.models.sparse_transformer import sparse_transformer
@@ -47,7 +47,8 @@ def get_model(model_type, create_model_fn, model_kwargs, *create_model_args):
     model_map = {
         "transformer": transformer.TransformerEncoder,
         "local": local.LocalTransformerEncoder,
-        "longformer": longformer.LongformerEncoder
+        "longformer": longformer.LongformerEncoder,
+        "reformer": reformer.ReformerEncoder
     }
 
     return create_model_fn(model_map[model_type], model_kwargs, *create_model_args)

@@ -184,7 +184,7 @@ def main(argv):
     rng = random.PRNGKey(random_seed)
     rng = jax.random.fold_in(rng, jax.process_index())
     rng, init_rng = random.split(rng)
-    # We init the first set of dropout PRNG keys, but update it afterwards inside
+    # We init the first set of train PRNG keys, but update it afterwards inside
     # the main pmap'd training update for performance.
     dropout_rngs = random.split(rng, n_devices)
 
@@ -254,8 +254,7 @@ def main(argv):
 
     for step, batch in zip(range(start_step, num_train_steps), train_iter):
         batch = shard(tree_map(lambda x: x._numpy(), batch), n_devices=n_devices)
-        t_state, metrics, dropout_rngs = p_train_step(t_state, batch,
-                                                          dropout_rng=dropout_rngs)
+        t_state, metrics, dropout_rngs = p_train_step(t_state, batch, dropout_rng=dropout_rngs)
         metrics_all.append(metrics)
         logging.info('train in step: %d', step)
 

@@ -17,6 +17,7 @@ class GenericBlock(nn.Module):
     dtype: Any=jnp.float32
     dropout_rate: Any=0.1
     attention_dropout_rate: Any=0.1
+    max_len: int=512
     attention_module_kwargs: Optional[dict[str, Any]]=None
 
     @nn.compact
@@ -53,8 +54,9 @@ class GenericBlock(nn.Module):
                 bias=False,
                 broadcast_dropout=False,
                 dropout_rate=self.attention_dropout_rate,
+                max_len=self.max_len,
                 **attention_module_kwargs
-        )(x, segmentation=inputs_segmentation,causal_mask=causal_mask, padding_mask=padding_mask,
+        )(x, segmentation=inputs_segmentation, causal_mask=causal_mask, padding_mask=padding_mask,
           deterministic=deterministic, **attention_kwargs)
         x = nn.Dropout(rate=self.dropout_rate)(x, deterministic=deterministic)
         x = x + inputs
@@ -185,6 +187,7 @@ class GenericEncoder(nn.Module):
                     dtype=dtype,
                     dropout_rate=self.dropout_rate,
                     attention_dropout_rate=self.attention_dropout_rate,
+                    max_len=self._max_len,
                     name='encoderblock',
                     **block_module_kwargs)
             for _ in range(self.num_layers):
@@ -199,6 +202,7 @@ class GenericEncoder(nn.Module):
                         dtype=dtype,
                         dropout_rate=self.dropout_rate,
                         attention_dropout_rate=self.attention_dropout_rate,
+                        max_len=self._max_len,
                         name=f'encoderblock_{lyr}',
                         **block_module_kwargs
                 )(x, inputs_segmentation=inputs_segmentation, padding_mask=src_padding_mask,

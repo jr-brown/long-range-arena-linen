@@ -56,7 +56,6 @@ class LocalTransformerEncoder(nn.Module):
             "attention_module": local_attention.LocalSelfAttention,
             "attention_module_kwargs" : {
                 "block_size": self.block_size,
-                "max_len": self._max_len
             }
         }
         x = generic.GenericEncoder(

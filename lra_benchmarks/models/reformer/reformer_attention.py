@@ -12,12 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Attention modules for Reformer model."""
-
 from functools import partial
-from absl import logging
+from typing import Any
+from math import ceil
+
 from flax import linen as nn
 import jax
 import jax.numpy as jnp
+import jax.nn as jnn
 from jax.scipy.special import logsumexp
 
 
@@ -35,6 +37,8 @@ def look_one_back(x):
 
 def permute_via_gather(val, permutation, inverse_permutation, axis=0):
     """Permutation helper for LSH attention."""
+    # Original code used a custom_transform here to increase speed
+    # This could be re-implemented with custom_vjp (issue no longer applies)
     # It is *not* safe to use jax.custom_vjp here. The most likely cause is that
     # it can't close over values: https://github.com/google/jax/issues/2676
     # The error only occurs in some configurations (e.g. use_python_loop = True,
@@ -111,12 +115,11 @@ def hash_vectors(vecs, rng, num_buckets, num_hashes):
     return buckets
 
 
-def lsh_attention_single_batch(query, value, n_buckets, n_hashes,
-                                                              causal_mask=True):
+def lsh_attention_single_batch(query, value, n_buckets, n_hashes, hash_rng, *, causal_mask=True):
     """LSH attention for single batch."""
     del causal_mask
     attn = jax.vmap(lsh_attention_single_head, in_axes=(1, 1, None, None))
-    out = attn(query, value, n_buckets, n_hashes)
+    out = attn(query, value, n_buckets, n_hashes, hash_rng)
     return out
 
 
@@ -126,9 +129,8 @@ def length_normalized(x, epsilon=1e-6):
     return norm_inputs
 
 
-def lsh_attention_single_head(query, value, n_buckets, n_hashes,
-                                                            causal_mask=True,
-                                                            length_norm=False):
+def lsh_attention_single_head(query, value, n_buckets, n_hashes, hash_rng, *, causal_mask=True,
+                              length_norm=False):
     """Applies LSH attention on a single head and a single batch.
 
     Args:
@@ -147,11 +149,8 @@ def lsh_attention_single_head(query, value, n_buckets, n_hashes,
 
     seqlen = query.shape[0]
 
-    with nn.stochastic(jax.random.PRNGKey(0)):
-        rng = nn.make_rng()
-
     buckets = hash_vectors(
-            query, rng, num_buckets=n_buckets, num_hashes=n_hashes)
+            query, hash_rng, num_buckets=n_buckets, num_hashes=n_hashes)
     # buckets should be (seq_len)
     assert buckets.shape[-1] == n_hashes * seqlen
 
@@ -219,32 +218,30 @@ def lsh_attention_single_head(query, value, n_buckets, n_hashes,
 class ReformerAttention(nn.Module):
     """Multi-head Reformer Architecture."""
 
-    def apply(self,
-                        inputs_q,
-                        inputs_kv,
-                        num_heads,
-                        dtype=jnp.float32,
-                        qkv_features=None,
-                        out_features=None,
-                        causal_mask=False,
-                        padding_mask=None,
-                        key_padding_mask=None,
-                        segmentation=None,
-                        key_segmentation=None,
-                        cache=None,
-                        broadcast_dropout=True,
-                        dropout_rng=None,
-                        dropout_rate=0.,
-                        deterministic=False,
-                        precision=None,
-                        kernel_init=nn.linear.default_kernel_init,
-                        bias_init=nn.initializers.zeros,
-                        bias=True,
-                        chunk_len=10,
-                        n_chunks_before=1,
-                        n_hashes=1,
-                        n_buckets=10
-                        ):
+    num_heads: Any
+    dtype: Any=jnp.float32
+    qkv_features: Any=None
+    out_features: Any=None
+    broadcast_dropout: Any=True
+    dropout_rng: Any=None
+    dropout_rate: Any=0.
+    precision: Any=None
+    kernel_init: Any=nn.linear.default_kernel_init
+    bias_init: Any=jnn.initializers.zeros
+    bias: Any=True
+    chunk_len: Any=10
+    n_chunks_before: Any=1
+    n_hashes: Any=1
+    n_buckets=10
+    max_len: int=512
+
+    def setup(self):
+        self.n_blocks = ceil(self.max_len / self.chunk_len)
+        self.blocks_total_len = self.n_blocks * self.chunk_len
+
+    @nn.compact
+    def __call__(self, inputs_q, inputs_kv, *, segmentation=None, key_segmentation=None,
+                 causal_mask=False, padding_mask=None, key_padding_mask=None, deterministic=False):
         """Applies multi-head reformer attention on the input data.
 
         Projects the inputs into multi-headed query, key, and value vectors,
@@ -271,8 +268,6 @@ class ReformerAttention(nn.Module):
             key_padding_mask: boolean specifying key-value tokens that are pad token.
             segmentation: segment indices for packed inputs_q data.
             key_segmentation: segment indices for packed inputs_kv data.
-            cache: an instance of `flax.nn.attention.Cache` used for efficient
-                autoregressive decoding.
             broadcast_dropout: bool: use a broadcasted dropout along batch dims.
             dropout_rng: JAX PRNGKey: to be used for dropout
             dropout_rate: dropout rate
@@ -291,52 +286,59 @@ class ReformerAttention(nn.Module):
             output of shape `[bs, dim1, dim2, ..., dimN, features]`.
         """
 
-        assert causal_mask or not cache, (
-                'Caching is only support for causal attention.')
-
         assert inputs_q.ndim == 3
 
+        orig_len = inputs_q.shape[-2]
+
+        # Done this way to avoid jnp.pad which doesn't work with jit
+        def pad_f(x, val=0):
+            new_x = jnp.full((x.shape[0], self.blocks_total_len, *x.shape[2:]), val, dtype=x.dtype)
+            new_x = new_x.at[:,:orig_len].set(x)
+            return new_x
+
+        inputs_q = pad_f(inputs_q)
         if inputs_kv is None:
             inputs_kv = inputs_q
+        else:
+            inputs_kv = pad_f(inputs_kv)
+
+        # logging.info(padding_mask)
+        padding_mask = pad_f(padding_mask, val=-1e9)
+        # logging.info(inputs_q)
 
         qkv_features = inputs_q.shape[-1]
         qlength = inputs_q.shape[1]
         orig_seqlen = inputs_q.shape[1]
         batch_size = inputs_q.shape[0]
 
-        # chunk_size = n_hashes * n_buckets
 
-        extra_len = chunk_len - (qlength % chunk_len)
-        pad_width = jnp.array([[0, 0], [0, extra_len], [0, 0]])
-
-        inputs_q = jnp.pad(inputs_q, pad_width)
-        inputs_kv = jnp.pad(inputs_kv, pad_width)
-
-        logging.info(inputs_q)
-
-        qlength = inputs_q.shape[1]
-
-        assert qkv_features % num_heads == 0, (
+        assert qkv_features % self.num_heads == 0, (
                 'Memory dimension must be divisible by number of heads.')
-        head_dim = qkv_features // num_heads
+        head_dim = qkv_features // self.num_heads
 
         dense = partial(nn.DenseGeneral,
-                axis=-1,
-                features=(num_heads, head_dim),
-                kernel_init=kernel_init,
-                bias_init=bias_init,
-                bias=bias,
-                precision=precision)
+                        axis=-1,
+                        features=(self.num_heads, head_dim),
+                        kernel_init=self.kernel_init,
+                        bias_init=self.bias_init,
+                        use_bias=self.bias,
+                        dtype=self.dtype,
+                        precision=self.precision)
 
         # project inputs_q to multi-headed q/k/v
         # dimensions are then [bs, dims..., n_heads, n_features_per_head]
-        query, value = (dense(inputs_q, dtype=dtype, name='query'),
-                                        dense(inputs_kv, dtype=dtype, name='value'))
+        query = dense(name="query")(inputs_q)
+        value = dense(name="value")(inputs_kv)
+
+        hash_rng = self.make_rng('hash')
 
         attn = jax.vmap(lsh_attention_single_batch, in_axes=(0, 0, None, None))
-        out = attn(query, value, n_buckets, n_hashes)
+        out = attn(query, value, self.n_buckets, self.n_hashes, hash_rng)
         out = jnp.reshape(out, [batch_size, qlength, qkv_features])
         out = out[:, :orig_seqlen, :]
         return out
 
-ReformerSelfAttention = partial(ReformerAttention,inputs_kv=None)
+class ReformerSelfAttention(ReformerAttention):
+    def __call__(self, inputs, **kwargs):
+        return super().__call__(inputs, inputs_kv=None, **kwargs)
+
