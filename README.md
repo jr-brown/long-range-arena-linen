@@ -37,7 +37,7 @@ This is a fork of google's long-range arena that aims to update it to use the la
 
 ## Running
 * Either use one of the scripts or
-* Set a flag before invoking python: "XLA_FLAGS=--xla_gpu_force_compilation_parallelism=1 python ..."
+* Set this flag before invoking python: "XLA_FLAGS=--xla_gpu_force_compilation_parallelism=1 python ..."
 
 
 ## Changes to original codebase functionality

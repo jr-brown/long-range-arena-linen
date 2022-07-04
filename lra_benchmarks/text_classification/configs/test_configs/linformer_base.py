@@ -11,17 +11,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Reformer language models."""
-from functools import partial
+"""Configuration and hyperparameter sweeps."""
 
-from lra_benchmarks.models.reformer import reformer_attention
-from lra_benchmarks.models.generic import generic
+from lra_benchmarks.text_classification.configs.test_configs import base_test
 
 
-ReformerBlock = partial(generic.GenericBlock,
-                        attention_module=reformer_attention.ReformerSelfAttention)
+def get_config():
+  """Get the default hyperparameter configuration."""
+  config = base_test.get_config()
+  config.model_type = "linformer"
+  config.low_rank_features = 32
+  return config
 
-ReformerEncoder = partial(generic.GenericEncoder, block_module=ReformerBlock)
-ReformerDualEncoder = partial(generic.GenericDualEncoder, encoder_module=ReformerEncoder)
-ReformerDecoder = partial(generic.GenericDecoder, block_module=ReformerBlock)
 
+def get_hyper(hyper):
+  return hyper.product([])

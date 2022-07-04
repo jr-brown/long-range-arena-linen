@@ -11,17 +11,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Reformer language models."""
+"""Linformer models."""
 from functools import partial
 
-from lra_benchmarks.models.reformer import reformer_attention
+from lra_benchmarks.models.linformer import linformer_attention
 from lra_benchmarks.models.generic import generic
 
 
-ReformerBlock = partial(generic.GenericBlock,
-                        attention_module=reformer_attention.ReformerSelfAttention)
+LinformerBlock = partial(generic.GenericBlock,
+                         attention_module=linformer_attention.LinformerSelfAttention)
 
-ReformerEncoder = partial(generic.GenericEncoder, block_module=ReformerBlock)
-ReformerDualEncoder = partial(generic.GenericDualEncoder, encoder_module=ReformerEncoder)
-ReformerDecoder = partial(generic.GenericDecoder, block_module=ReformerBlock)
+LinformerEncoder = partial(generic.GenericEncoder, block_module=LinformerBlock)
+LinformerDualEncoder = partial(generic.GenericDualEncoder, encoder_module=LinformerEncoder)
 

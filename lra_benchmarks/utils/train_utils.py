@@ -56,9 +56,6 @@ def get_model(model_type, create_model_fn, model_kwargs, *create_model_args):
 #   elif model_type == 'synthesizer':
 #     return create_model_fn(synthesizer.SynthesizerEncoder, model_kwargs,
 #                            *create_model_args)
-#   elif model_type == 'reformer':
-#     return create_model_fn(reformer.ReformerEncoder, model_kwargs,
-#                            *create_model_args)
 #   elif model_type == 'performer':
 #     return create_model_fn(performer.PerformerEncoder, model_kwargs,
 #                            *create_model_args)
