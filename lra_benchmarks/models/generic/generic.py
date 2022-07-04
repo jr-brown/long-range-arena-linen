@@ -11,12 +11,12 @@ class GenericBlock(nn.Module):
     """Generic Layer"""
 
     attention_module: nn.Module
-    qkv_dim: Any
-    mlp_dim: Any
-    num_heads: Any
+    qkv_dim: int
+    mlp_dim: int
+    num_heads: int
     dtype: Any=jnp.float32
-    dropout_rate: Any=0.1
-    attention_dropout_rate: Any=0.1
+    dropout_rate: float=0.1
+    attention_dropout_rate: float=0.1
     max_len: int=512
     attention_module_kwargs: Optional[dict[str, Any]]=None
 
@@ -78,22 +78,23 @@ class GenericEncoder(nn.Module):
     block_module: nn.Module
     vocab_size: Any
     shared_embedding: Any=None
-    use_bfloat16: Any=False
+    use_bfloat16: bool=False
     dtype: Any=jnp.float32
-    emb_dim: Any=512
-    num_heads: Any=8
-    num_layers: Any=6
-    qkv_dim: Any=512
-    mlp_dim: Any=2048
-    max_len: Any=512
-    dropout_rate: Any=0.1
-    attention_dropout_rate: Any=0.1
-    learn_pos_emb: Any=False
-    classifier: Any=False
+    emb_dim: int=512
+    num_heads: int=8
+    num_layers: int=6
+    qkv_dim: int=512
+    mlp_dim: int=2048
+    max_len: int=512
+    dropout_rate: float=0.1
+    attention_dropout_rate: float=0.1
+    learn_pos_emb: bool=False
+    classifier: bool=False
     classifier_pool: Any='CLS'
-    num_classes: Any=10
-    tied_weights: Any=False
+    num_classes: int=10
+    tied_weights: bool=False
     block_module_kwargs: Optional[dict[str, Any]]=None
+    custom_classifier_func: Any=None
 
     def setup(self):
         if self.classifier and self.classifier_pool == 'CLS':
@@ -211,8 +212,11 @@ class GenericEncoder(nn.Module):
         encoded = nn.LayerNorm(dtype=dtype, name='encoder_norm')(x)
 
         if self.classifier:
-            encoded = common_layers.classifier_head(
-                    encoded, self.num_classes, self.mlp_dim, pooling_mode=self.classifier_pool)
+            if self.custom_classifier_func is None:
+                encoded = common_layers.classifier_head(encoded, self.num_classes, self.mlp_dim,
+                                                        pooling_mode=self.classifier_pool)
+            else:
+                encoded = self.custom_classifier_func(encoded)
         return encoded
 
 
@@ -221,18 +225,18 @@ class GenericDualEncoder(nn.Module):
 
     encoder_module: nn.Module
     vocab_size: Any=None
-    use_bfloat16: Any=False
-    emb_dim: Any=512
-    num_heads: Any=8
-    num_layers: Any=6
-    qkv_dim: Any=512
-    mlp_dim: Any=2048
-    max_len: Any=2048
-    dropout_rate: Any=0.1
-    attention_dropout_rate: Any=0.1
-    classifier: Any=True
-    classifier_pool: Any='CLS'
-    num_classes: Any=2
+    use_bfloat16: bool=False
+    emb_dim: int=512
+    num_heads: int=8
+    num_layers: int=6
+    qkv_dim: int=512
+    mlp_dim: int=2048
+    max_len: int=2048
+    dropout_rate: float=0.1
+    attention_dropout_rate: float=0.1
+    classifier: bool=True
+    classifier_pool: str='CLS'
+    num_classes: int=2
     interaction: Any=None
     encoder_module_kwargs: Optional[dict[str, Any]]=None
 
@@ -315,15 +319,15 @@ class GenericDecoder(nn.Module):
 
     block_module: nn.Module
     vocab_size: Any
-    emb_dim: Any=512
-    num_heads: Any=8
-    num_layers: Any=6
-    qkv_dim: Any=512
-    mlp_dim: Any=2048
-    max_len: Any=2048
-    shift: Any=True
-    dropout_rate: Any=0.1
-    attention_dropout_rate: Any=0.1
+    emb_dim: int=512
+    num_heads: int=8
+    num_layers: int=6
+    qkv_dim: int=512
+    mlp_dim: int=2048
+    max_len: int=2048
+    shift: bool=True
+    dropout_rate: float=0.1
+    attention_dropout_rate: float=0.1
     block_module_kwargs: Optional[dict[str, Any]]=None
 
     @nn.compact
