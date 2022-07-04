@@ -37,50 +37,19 @@ def look_one_back(x):
     return jnp.concatenate([x, xlb], axis=1)
 
 
-def permute_via_gather(val, permutation, inverse_permutation, axis=0):
+def permute_via_gather(val, permutation, axis=0):
     """Permutation helper for LSH attention."""
     # Original code used a custom_transform here to increase speed
     # This could be re-implemented with custom_vjp (issue no longer applies)
-    # It is *not* safe to use jax.custom_vjp here. The most likely cause is that
-    # it can't close over values: https://github.com/google/jax/issues/2676
-    # The error only occurs in some configurations (e.g. use_python_loop = True,
-    # num_parallel_heads = 1) but not others.
-    permutation = jax.lax.stop_gradient(permutation)
-    inverse_permutation = jax.lax.stop_gradient(inverse_permutation)
-    def permute_impl(val):
-        return jnp.take(val, permutation, axis=axis)
-    def permute_vjp(val):
-        permuted = permute_impl(jax.lax.stop_gradient(val))
-        def vjpfun(permuted_grad):
-            # JAX autodiff would synthesize a scatter operation because it doesn't
-            # know that the indices are a permutatation. However on TPU, gathers are
-            # faster than scatters (at least in the regime the LSH attention uses).
-            return (jnp.take(permuted_grad, inverse_permutation, axis=axis),)
-        return permuted, vjpfun
-    permute = jax.custom_transforms(permute_impl)
-    jax.defvjp_all(permute, permute_vjp)
-    return permute(val)
+    return jnp.take(val, permutation, axis=axis)
 
 
-def permute_via_sort(val, keys, inverse_keys, axis=0):
+def permute_via_sort(val, keys, axis=0):
     """Permutation helper for LSH attention."""
-    # It is *not* safe to use jax.custom_vjp here (see permute_via_gather).
-    keys = jax.lax.stop_gradient(keys)
-    inverse_keys = jax.lax.stop_gradient(inverse_keys)
-    def permute_impl(val):
-        # On TPU, sorting scalars by key is faster than a gather.
-        _, permuted = jax.lax.sort_key_val(keys, val, dimension=axis)
-        return permuted
-    def permute_vjp(val):
-        permuted = permute_impl(jax.lax.stop_gradient(val))
-        def vjpfun(permuted_grad):
-            _, val_grad = jax.lax.sort_key_val(
-                    inverse_keys, permuted_grad, dimension=axis)
-            return (val_grad,)
-        return permuted, vjpfun
-    permute = jax.custom_transforms(permute_impl)
-    jax.defvjp_all(permute, permute_vjp)
-    return permute(val)
+    # Original code used a custom_transform here to increase speed
+    # This could be re-implemented with custom_vjp (issue no longer applies)
+    _, permuted = jax.lax.sort_key_val(keys, val, dimension=axis)
+    return permuted
 
 
 def hash_vectors(vecs, rng, num_buckets, num_hashes):
@@ -209,8 +178,8 @@ def lsh_attention_single_head(query, value, n_buckets, n_hashes, *, causal_mask=
     x = jnp.reshape(x, [-1, qdim])
 
     # Unsort
-    o = permute_via_gather(x, undo_sort, sticker, axis=0)
-    logits = permute_via_sort(slogits, sticker, undo_sort, axis=0)
+    o = permute_via_gather(x, undo_sort, axis=0)
+    logits = permute_via_sort(slogits, sticker, axis=0)
     logits = jnp.reshape(logits, [total_hashes, seqlen, 1])
     probs = jnp.exp(logits - logsumexp(logits, axis=0, keepdims=True))
     o = jnp.reshape(o, [n_hashes, seqlen, qdim])
@@ -313,7 +282,6 @@ class ReformerAttention(nn.Module):
 
         qkv_features = inputs_q.shape[-1]
         qlength = inputs_q.shape[1]
-        orig_seqlen = inputs_q.shape[1]
         batch_size = inputs_q.shape[0]
 
 
@@ -338,7 +306,7 @@ class ReformerAttention(nn.Module):
         attn = jax.vmap(lsh_attention_single_batch, in_axes=(0, 0, None, None))
         out = attn(query, value, self.n_buckets, self.n_hashes)
         out = jnp.reshape(out, [batch_size, qlength, qkv_features])
-        out = out[:, :orig_seqlen, :]
+        out = out[:, :orig_len, :]
         return out
 
 class ReformerSelfAttention(ReformerAttention):

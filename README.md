@@ -14,6 +14,7 @@ This is a fork of google's long-range arena that aims to update it to use the la
 * Vanilla Transformer
 * Local Attention (C)
 * Longformer (C)
+* Reformer (C)
 
 ### Implemented Tasks
 * Text classification
