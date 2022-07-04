@@ -1,0 +1,101 @@
+2022-07-04 17:00:19.572486: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcudart.so.11.0'; dlerror: libcudart.so.11.0: cannot open shared object file: No such file or directory
+2022-07-04 17:00:21.020720: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcuda.so.1'; dlerror: libcuda.so.1: cannot open shared object file: No such file or directory
+2022-07-04 17:00:21.020754: W tensorflow/stream_executor/cuda/cuda_driver.cc:269] failed call to cuInit: UNKNOWN ERROR (303)
+I0704 17:00:21.020963 140122410768192 train.py:128] ===========Config Dict============
+I0704 17:00:21.021061 140122410768192 train.py:129] available_devices:
+- 2
+- 3
+batch_size: 4
+checkpoint_freq: 10000
+classifier_pool: CLS
+emb_dim: 256
+eval_frequency: 3
+factors: constant * linear_warmup * rsqrt_decay
+learning_rate: 0.05
+max_eval_target_length: 200
+max_length: 1000
+max_predict_token_length: 50
+max_target_length: 200
+mlp_dim: 1024
+model_type: transformer
+num_data_entries:
+  test: 100
+  train: 1000
+  valid: 100
+num_eval_steps: -1
+num_heads: 2
+num_layers: 3
+num_train_steps: 5
+prompt: ''
+qkv_dim: 256
+random_seed: 0
+restore_checkpoints: false
+sampling_temperature: 0.6
+sampling_top_k: 20
+save_checkpoints: false
+task_name: yelp_reviews
+trial: 0
+warmup: 8000
+weight_decay: 0.1
+
+I0704 17:00:21.025077 140122410768192 xla_bridge.py:330] Unable to initialize backend 'tpu_driver': NOT_FOUND: Unable to find driver in registry given worker: 
+I0704 17:00:21.025238 140122410768192 xla_bridge.py:330] Unable to initialize backend 'gpu': NOT_FOUND: Could not find registered platform with name: "cuda". Available platform names are: Host Interpreter
+I0704 17:00:21.025436 140122410768192 xla_bridge.py:330] Unable to initialize backend 'tpu': INVALID_ARGUMENT: TpuPlatform is not available.
+W0704 17:00:21.025511 140122410768192 xla_bridge.py:335] No GPU/TPU found, falling back to CPU. (Set TF_CPP_MIN_LOG_LEVEL=0 and rerun for more info.)
+I0704 17:00:21.025575 140122410768192 train.py:140] GPU devices: None
+I0704 17:00:21.028978 140122410768192 dataset_info.py:491] Load dataset info from ./tf_datasets/yelp_polarity_reviews/0.2.0
+I0704 17:00:21.030517 140122410768192 dataset_builder.py:383] Reusing dataset yelp_polarity_reviews (./tf_datasets/yelp_polarity_reviews/0.2.0)
+I0704 17:00:21.030608 140122410768192 logging_logger.py:44] Constructing tf.data.Dataset yelp_polarity_reviews for split None, from ./tf_datasets/yelp_polarity_reviews/0.2.0
+I0704 17:00:21.127603 140122410768192 input_pipeline.py:64] Data sample: {'label': 1, 'text': b'A large selection of food from all over the world. Great atmosphere and ambiance.  Quality of food is on par with a 5 star hotel. But did not have lobster and king crab that I was expecting for this kind of price.'}
+INFO:tensorflow:Train/val/test dataset sizes: 1000, 100, 100
+I0704 17:00:21.154268 140122410768192 input_pipeline.py:134] Train/val/test dataset sizes: 1000, 100, 100
+INFO:tensorflow:Finished preprocessing
+I0704 17:00:21.154381 140122410768192 input_pipeline.py:135] Finished preprocessing
+INFO:tensorflow:<TakeDataset element_spec={'Source': TensorSpec(shape=(), dtype=tf.string, name=None), 'Target': TensorSpec(shape=(), dtype=tf.int64, name=None)}>
+I0704 17:00:21.154426 140122410768192 input_pipeline.py:136] <TakeDataset element_spec={'Source': TensorSpec(shape=(), dtype=tf.string, name=None), 'Target': TensorSpec(shape=(), dtype=tf.int64, name=None)}>
+I0704 17:00:21.154568 140122410768192 input_pipeline.py:139] Using char/byte level vocab
+I0704 17:00:21.223530 140122410768192 train.py:161] Vocab Size: 257
+Traceback (most recent call last):
+  File "/home/jasonb/2022-urop/long-range-arena-linen/lra_benchmarks/text_classification/train.py", line 302, in <module>
+    app.run(main)
+  File "/home/jasonb/py_venv/lib/python3.10/site-packages/absl/app.py", line 312, in run
+    _run_main(main, args)
+  File "/home/jasonb/py_venv/lib/python3.10/site-packages/absl/app.py", line 258, in _run_main
+    sys.exit(main(argv))
+  File "/home/jasonb/2022-urop/long-range-arena-linen/lra_benchmarks/text_classification/train.py", line 183, in main
+    rng, init_rng = random.split(rng)
+  File "/home/jasonb/py_venv/lib/python3.10/site-packages/jax/_src/random.py", line 194, in split
+    return _return_prng_keys(wrapped, _split(key, num))
+  File "/home/jasonb/py_venv/lib/python3.10/site-packages/jax/_src/random.py", line 180, in _split
+    return key._split(num)
+  File "/home/jasonb/py_venv/lib/python3.10/site-packages/jax/_src/prng.py", line 203, in _split
+    return PRNGKeyArray(self.impl, self.impl.split(self._keys, num))
+  File "/home/jasonb/py_venv/lib/python3.10/site-packages/jax/_src/prng.py", line 474, in threefry_split
+    return _threefry_split(key, int(num))  # type: ignore
+  File "/home/jasonb/py_venv/lib/python3.10/site-packages/jax/_src/traceback_util.py", line 162, in reraise_with_filtered_traceback
+    return fun(*args, **kwargs)
+  File "/home/jasonb/py_venv/lib/python3.10/site-packages/jax/_src/api.py", line 473, in cache_miss
+    out_flat = xla.xla_call(
+  File "/home/jasonb/py_venv/lib/python3.10/site-packages/jax/core.py", line 1765, in bind
+    return call_bind(self, fun, *args, **params)
+  File "/home/jasonb/py_venv/lib/python3.10/site-packages/jax/core.py", line 1781, in call_bind
+    outs = top_trace.process_call(primitive, fun_, tracers, params)
+  File "/home/jasonb/py_venv/lib/python3.10/site-packages/jax/core.py", line 678, in process_call
+    return primitive.impl(f, *tracers, **params)
+  File "/home/jasonb/py_venv/lib/python3.10/site-packages/jax/_src/dispatch.py", line 182, in _xla_call_impl
+    compiled_fun = _xla_callable(fun, device, backend, name, donated_invars,
+  File "/home/jasonb/py_venv/lib/python3.10/site-packages/jax/linear_util.py", line 285, in memoized_fun
+    ans = call(fun, *args)
+  File "/home/jasonb/py_venv/lib/python3.10/site-packages/jax/_src/dispatch.py", line 231, in _xla_callable_uncached
+    keep_unused, *arg_specs).compile().unsafe_call
+  File "/home/jasonb/py_venv/lib/python3.10/site-packages/jax/_src/dispatch.py", line 704, in compile
+    self._executable = XlaCompiledComputation.from_xla_computation(
+  File "/home/jasonb/py_venv/lib/python3.10/site-packages/jax/_src/dispatch.py", line 806, in from_xla_computation
+    compiled = compile_or_get_cached(backend, xla_computation, options)
+  File "/home/jasonb/py_venv/lib/python3.10/site-packages/jax/_src/dispatch.py", line 768, in compile_or_get_cached
+    return backend_compile(backend, computation, compile_options)
+  File "/home/jasonb/py_venv/lib/python3.10/site-packages/jax/_src/profiler.py", line 206, in wrapper
+    return func(*args, **kwargs)
+  File "/home/jasonb/py_venv/lib/python3.10/site-packages/jax/_src/dispatch.py", line 713, in backend_compile
+    return backend.compile(built_c, compile_options=options)
+KeyboardInterrupt

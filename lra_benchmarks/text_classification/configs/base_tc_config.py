@@ -49,6 +49,7 @@ def get_config():
   config.mlp_dim = 1024
   config.num_data_entries = None
   config.available_devices = [2,3]
+  config.task_name = "yelp_reviews"
 
   config.trial = 0  # dummy for repeated runs.
   return config

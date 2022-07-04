@@ -45,10 +45,6 @@ config_flags.DEFINE_config_file(
 flags.DEFINE_string(
         'model_dir', default=None, help='Directory to store model data.')
 flags.DEFINE_string(
-        'task_name',
-        default='basic_two_ptrs',
-        help='Directory to store model data.')
-flags.DEFINE_string(
         'data_dir', default=None, help='Directory containing datasets.')
 flags.DEFINE_bool(
         'test_only', default=False, help='Run the evaluation on the test data.')
@@ -70,10 +66,10 @@ def create_train_state(flax_module, model_kwargs, init_rng, input_shape, tx
     return _create_train_state(init_rng)
 
 
-def compute_metrics(logits, labels, weights):
+def compute_metrics(logits, labels, weights, *, num_classes):
     """Compute summary metrics."""
     loss, weight_sum = train_utils.compute_weighted_cross_entropy(
-            logits, labels, num_classes=CLASS_MAP[FLAGS.task_name], weights=None)
+            logits, labels, num_classes=num_classes, weights=None)
     acc, _ = train_utils.compute_weighted_accuracy(logits, labels, weights)
     metrics = {
             'loss': loss,
@@ -84,7 +80,7 @@ def compute_metrics(logits, labels, weights):
     return metrics
 
 
-def train_step(t_state, batch, dropout_rng=None):
+def train_step(t_state, batch, *, num_classes, dropout_rng=None):
     """Perform a single training step."""
     train_keys = ['inputs', 'targets']
     (inputs, targets) = [batch.get(k, None) for k in train_keys]
@@ -99,7 +95,7 @@ def train_step(t_state, batch, dropout_rng=None):
         logits = t_state.apply_fn({'params': params}, inputs, train=True,
                                   rngs={'dropout': dropout_rng})
         loss, weight_sum = train_utils.compute_weighted_cross_entropy(
-                logits, targets, num_classes=CLASS_MAP[FLAGS.task_name], weights=None)
+                logits, targets, num_classes=num_classes, weights=None)
         mean_loss = loss / weight_sum
         return mean_loss, logits
 
@@ -107,19 +103,19 @@ def train_step(t_state, batch, dropout_rng=None):
     grads = jax.lax.pmean(grads, 'batch')
     new_t_state = t_state.apply_gradients(grads=grads)
 
-    metrics = compute_metrics(logits, targets, None)
+    metrics = compute_metrics(logits, targets, None, num_classes=num_classes)
     metrics['learning_rate'] = t_state.opt_state.hyperparams['learning_rate']
 
     # Pack train state and return
     return new_t_state, metrics, new_dropout_rng
 
 
-def eval_step(t_state, batch):
+def eval_step(t_state, batch, *, num_classes):
     eval_keys = ['inputs', 'targets']
     (inputs, targets) = [batch.get(k, None) for k in eval_keys]
     logits = t_state.apply_fn({'params': t_state.params}, inputs, train=False)
     logging.info(logits)
-    return compute_metrics(logits, targets, None)
+    return compute_metrics(logits, targets, None, num_classes=num_classes)
 
 
 def main(argv):
@@ -138,6 +134,7 @@ def main(argv):
     eval_freq = config.eval_frequency
     random_seed = config.random_seed
     model_type = config.model_type
+    num_classes = CLASS_MAP[config.task_name]
     gpu_devices, n_devices = get_devices(config.available_devices)
 
     logging.info(f"GPU devices: {gpu_devices}")
@@ -153,7 +150,7 @@ def main(argv):
 
     train_ds, eval_ds, test_ds, encoder = input_pipeline.get_tc_datasets(
             n_devices=n_devices,
-            task_name=FLAGS.task_name,
+            task_name=config.task_name,
             data_dir=FLAGS.data_dir,
             batch_size=batch_size,
             fixed_vocab=None,
@@ -177,7 +174,7 @@ def main(argv):
             'mlp_dim': config.mlp_dim,
             'max_len': max_length,
             'classifier': True,
-            'num_classes': CLASS_MAP[FLAGS.task_name],
+            'num_classes': num_classes,
             'classifier_pool': config.classifier_pool
     }
 
@@ -212,8 +209,10 @@ def main(argv):
     # Replicate t_state, not sure if needed
     t_state = jax_utils.replicate(t_state, devices=gpu_devices)
 
-    p_train_step = jax.pmap(train_step, axis_name='batch', devices=gpu_devices)
-    p_eval_step = jax.pmap(eval_step, axis_name='batch', devices=gpu_devices)
+    p_train_step = jax.pmap(partial(train_step, num_classes=num_classes),
+                            axis_name='batch', devices=gpu_devices)
+    p_eval_step = jax.pmap(partial(eval_step, num_classes=num_classes),
+                           axis_name='batch', devices=gpu_devices)
     # p_pred_step = jax.pmap(predict_step, axis_name='batch', devices=gpu_devices)
 
     def run_eval(eval_ds, num_eval_steps=-1):
