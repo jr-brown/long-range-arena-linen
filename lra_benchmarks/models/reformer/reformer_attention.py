@@ -15,11 +15,13 @@
 from functools import partial
 from typing import Any
 from math import ceil
+from random import randint
 
 from flax import linen as nn
 import jax
 import jax.numpy as jnp
 import jax.nn as jnn
+import jax.random as jrand
 from jax.scipy.special import logsumexp
 
 
@@ -115,11 +117,11 @@ def hash_vectors(vecs, rng, num_buckets, num_hashes):
     return buckets
 
 
-def lsh_attention_single_batch(query, value, n_buckets, n_hashes, hash_rng, *, causal_mask=True):
+def lsh_attention_single_batch(query, value, n_buckets, n_hashes, *, causal_mask=True):
     """LSH attention for single batch."""
     del causal_mask
     attn = jax.vmap(lsh_attention_single_head, in_axes=(1, 1, None, None))
-    out = attn(query, value, n_buckets, n_hashes, hash_rng)
+    out = attn(query, value, n_buckets, n_hashes)
     return out
 
 
@@ -129,7 +131,7 @@ def length_normalized(x, epsilon=1e-6):
     return norm_inputs
 
 
-def lsh_attention_single_head(query, value, n_buckets, n_hashes, hash_rng, *, causal_mask=True,
+def lsh_attention_single_head(query, value, n_buckets, n_hashes, *, causal_mask=True,
                               length_norm=False):
     """Applies LSH attention on a single head and a single batch.
 
@@ -143,6 +145,9 @@ def lsh_attention_single_head(query, value, n_buckets, n_hashes, hash_rng, *, ca
     Returns:
         output tensor of shape [qlength, dims]
     """
+
+    # Probably ought to make this more reproduceable with self.make_rng
+    hash_rng = jrand.PRNGKey(randint(0,100))
 
     qdim, vdim = query.shape[-1], value.shape[-1]
     chunk_size = n_hashes * n_buckets
@@ -330,10 +335,8 @@ class ReformerAttention(nn.Module):
         query = dense(name="query")(inputs_q)
         value = dense(name="value")(inputs_kv)
 
-        hash_rng = self.make_rng('hash')
-
         attn = jax.vmap(lsh_attention_single_batch, in_axes=(0, 0, None, None))
-        out = attn(query, value, self.n_buckets, self.n_hashes, hash_rng)
+        out = attn(query, value, self.n_buckets, self.n_hashes)
         out = jnp.reshape(out, [batch_size, qlength, qkv_features])
         out = out[:, :orig_seqlen, :]
         return out
