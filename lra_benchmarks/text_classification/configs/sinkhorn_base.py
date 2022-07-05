@@ -20,6 +20,7 @@ def get_config():
   """Get the default hyperparameter configuration."""
   config = base_tc_config.get_config()
   config.model_type = "sinkhorn"
+  config.classifier_pool = "MEAN"
   return config
 
 

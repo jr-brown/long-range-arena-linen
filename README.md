@@ -16,7 +16,7 @@ This is a fork of google's long-range arena that aims to update it to use the la
 * Longformer
 * Reformer
 * Linformer
-* Sinkhorn (T)
+* Sinkhorn (C, but slow)
 
 ### Implemented Tasks
 * Text classification

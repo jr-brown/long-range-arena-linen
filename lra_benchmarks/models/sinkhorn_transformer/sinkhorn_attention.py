@@ -253,7 +253,7 @@ class SinkhornAttention(nn.Module):
                 dtype=self.dtype,
                 bias=sorted_attention_bias,
                 precision=self.precision,
-                dropout_rng=self.dropout_rng,
+                dropout_rng=dropout_rng,
                 dropout_rate=self.dropout_rate,
                 broadcast_dropout=self.broadcast_dropout,
                 deterministic=deterministic)
