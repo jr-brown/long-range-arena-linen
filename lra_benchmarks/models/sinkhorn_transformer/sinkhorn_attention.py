@@ -12,16 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Sinkhorn Attention modules."""
-
 from functools import partial
 from typing import Any
+from math import ceil
 
 from flax import linen as nn
 import jax
 import jax.numpy as jnp
 import jax.nn as jnn
 
-from lra_benchmarks.utils.array_utils import make_block_attention_mask, combine_masks_into_bias
+from lra_benchmarks.utils.array_utils import make_block_attention_mask, combine_masks_into_bias, pad_inputs
 
 
 def sinkhorn_operator(log_alpha, n_iters=1, temp=1.0, clip=1.0, causal=True):
@@ -76,6 +76,10 @@ class SinkhornAttention(nn.Module):
     sort_activation: Any='softmax'
     max_len: int=512
 
+    def setup(self):
+        self.n_blocks = ceil(self.max_len / self.block_size)
+        self.blocks_total_len = self.n_blocks * self.block_size
+
     @nn.compact
     def __call__(self, inputs_q, inputs_kv=None, *, segmentation=None, key_segmentation=None,
                  causal_mask: bool=False, padding_mask=None, key_padding_mask=None,
@@ -123,10 +127,12 @@ class SinkhornAttention(nn.Module):
             output of shape `[bs, dim1, dim2, ..., dimN, features]`.
         """
 
+        # (bs, len, n_features_per_head)
         assert inputs_q.ndim == 3
+        orig_len = inputs_q.shape[-2]
 
-        if inputs_kv is None:
-            inputs_kv = inputs_q
+        inputs_q, inputs_kv, padding_mask = pad_inputs(orig_len, self.blocks_total_len, inputs_q,
+                                                       inputs_kv, padding_mask)
 
         features = self.out_features or inputs_q.shape[-1]
         qkv_features = self.qkv_features or inputs_q.shape[-1]
@@ -145,7 +151,7 @@ class SinkhornAttention(nn.Module):
                         precision=self.precision)
 
         # project inputs_q to multi-headed q/k/v
-        # dimensions are then [bs, dims..., n_heads, n_features_per_head]
+        # dimensions are then (bs, len, n_heads, n_features_per_head)
         qd, kd, vd = dense(name='query'), dense(name='key'), dense(name='value')
         query, key, value = qd(inputs_q), kd(inputs_kv), vd(inputs_kv)
 
@@ -198,8 +204,8 @@ class SinkhornAttention(nn.Module):
             permutation = jax.nn.softmax(sort_out, axis=-1)
 
         # TODO Check this works with array dimensions
-        sorted_key = jnp.einsum('bskhd,bnhl->bsnhd', block_key, permutation)
-        sorted_value = jnp.einsum('bskhd,bnhl->bsnhd', block_value, permutation)
+        sorted_key = jnp.einsum('bkshd,bnhl->bnshd', block_key, permutation)
+        sorted_value = jnp.einsum('bkshd,bnhl->bnshd', block_value, permutation)
 
         # create attention masks
         mask_components, attention_bias = make_block_attention_mask(
@@ -218,7 +224,7 @@ class SinkhornAttention(nn.Module):
         )
 
         # TODO Check this works with array dimensions
-        sorted_mask_components = [jnp.einsum('bksj,bnhl->bnsj', m, permutation)
+        sorted_mask_components = [jnp.einsum('bksjp,bnhl->bnsjp', m, permutation)
                                   for m in mask_components]
         sorted_attention_bias = combine_masks_into_bias(sorted_mask_components, dtype=self.dtype)
 
@@ -262,12 +268,12 @@ class SinkhornAttention(nn.Module):
                 axis=(-2, -1),
                 kernel_init=self.kernel_init,
                 bias_init=self.bias_init,
-                bias=self.bias,
+                use_bias=self.bias,
                 dtype=self.dtype,
                 precision=self.precision,
                 name='out')(x)
 
-        return out
+        return out[:, :orig_len, :]
 
 class SinkhornSelfAttention(SinkhornAttention):
     def __call__(self, inputs, **kwargs):

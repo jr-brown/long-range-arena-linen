@@ -101,7 +101,7 @@ def _get_attention_result(query,
         segmentation=segmentation,
         key_segmentation=key_segmentation,
         use_attention_bias=True,
-        extra_masks=None if mask is None else [mask],
+        base_mask=mask
     )
 
     return nn.dot_product_attention(

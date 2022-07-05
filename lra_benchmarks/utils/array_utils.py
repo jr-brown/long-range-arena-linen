@@ -3,6 +3,25 @@ import jax.numpy as jnp
 from jax import lax
 
 
+def pad_inputs(orig_len, blocks_total_len, inputs_q, inputs_kv=None, padding_mask=None, val=1e-9):
+    # Done this way to avoid jnp.pad which doesn't work with jit
+    def pad_f(x, val=0):
+        new_x = jnp.full((x.shape[0], blocks_total_len, *x.shape[2:]), val, dtype=x.dtype)
+        new_x = new_x.at[:,:orig_len].set(x)
+        return new_x
+
+    inputs_q = pad_f(inputs_q)
+
+    if inputs_kv is None:
+        inputs_kv = inputs_q
+    else:
+        inputs_kv = pad_f(inputs_kv)
+
+    padding_mask = pad_f(padding_mask, val=val)
+
+    return inputs_q, inputs_kv, padding_mask
+
+
 def combine_masks_into_bias(masks: list, *, dtype=None):
     if masks:
         attention_mask = nn.combine_masks(*masks)
@@ -60,8 +79,8 @@ def make_block_attention_mask(*, seq_shape, bs, num_query_blocks, block_size, nu
 
 def make_attention_mask(*, seq_shape, dtype=None, causal_mask=False, padding_mask=None,
                         key_padding_mask=None, segmentation=None, key_segmentation=None,
-                        use_attention_bias=False, extra_masks=None):
-    mask_components = [] if extra_masks is None else extra_masks
+                        use_attention_bias=False, base_mask=None):
+    mask_components = [] if base_mask is None else [base_mask]
 
     if causal_mask:
         mask_components.append(nn.make_causal_mask(jnp.zeros(seq_shape)))

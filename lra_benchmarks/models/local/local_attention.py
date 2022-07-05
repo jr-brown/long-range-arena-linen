@@ -22,7 +22,7 @@ from flax import linen as nn
 import jax.numpy as jnp
 import jax.nn as jnn
 
-from lra_benchmarks.utils.array_utils import make_block_attention_mask
+from lra_benchmarks.utils.array_utils import make_block_attention_mask, pad_inputs
 
 
 class LocalAttention(nn.Module):
@@ -90,30 +90,16 @@ class LocalAttention(nn.Module):
         """
 
         assert inputs_q.ndim == 3
-
         orig_len = inputs_q.shape[-2]
 
-        # Done this way to avoid jnp.pad which doesn't work with jit
-        def pad_f(x, val=0):
-            new_x = jnp.full((x.shape[0], self.blocks_total_len, *x.shape[2:]), val, dtype=x.dtype)
-            new_x = new_x.at[:,:orig_len].set(x)
-            return new_x
-
-        inputs_q = pad_f(inputs_q)
-        if inputs_kv is None:
-            inputs_kv = inputs_q
-        else:
-            inputs_kv = pad_f(inputs_kv)
-
-        # logging.info(padding_mask)
-        padding_mask = pad_f(padding_mask, val=-1e9)
-        # logging.info(inputs_q)
+        inputs_q, inputs_kv, padding_mask = pad_inputs(orig_len, self.blocks_total_len, inputs_q,
+                                                       inputs_kv, padding_mask)
 
         features = self.out_features or inputs_q.shape[-1]
         qkv_features = self.qkv_features or inputs_q.shape[-1]
 
         assert qkv_features % self.num_heads == 0, (
-                'Memory dimension must be divisible by number of heads.')
+            'Memory dimension must be divisible by number of heads.')
         head_dim = qkv_features // self.num_heads
 
         dense = partial(nn.DenseGeneral,
