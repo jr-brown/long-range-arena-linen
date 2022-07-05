@@ -17,7 +17,8 @@ class MaskedSelfAttention(nn.Module):
     max_len: int=512
 
     @nn.compact
-    def __call__(self, x, *, segmentation=None, causal_mask: bool=False, padding_mask=None, deterministic: bool=False):
+    def __call__(self, x, *, segmentation=None, causal_mask: bool=False, padding_mask=None,
+                 deterministic: bool=False):
 
         mask = nn.make_attention_mask(padding_mask, padding_mask)
 
