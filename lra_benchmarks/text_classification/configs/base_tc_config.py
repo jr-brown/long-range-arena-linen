@@ -22,7 +22,7 @@ def get_config():
   config = ml_collections.ConfigDict()
   config.batch_size = 32
   config.eval_frequency = 100
-  config.num_train_steps = 20000
+  config.num_train_steps = 5000  # 20000
   config.num_eval_steps = -1
   config.learning_rate = 0.05
   config.weight_decay = 1e-1
@@ -33,7 +33,7 @@ def get_config():
   config.max_predict_token_length = 50
   config.save_checkpoints = True
   config.restore_checkpoints = True
-  config.checkpoint_freq = 10000
+  config.checkpoint_freq = 2500  # 10000
   config.random_seed = 0
   config.prompt = ""
   config.factors = "constant * linear_warmup * rsqrt_decay"
