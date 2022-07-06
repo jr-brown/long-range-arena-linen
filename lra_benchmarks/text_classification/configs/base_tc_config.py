@@ -22,7 +22,7 @@ def get_config():
   config = ml_collections.ConfigDict()
   config.batch_size = 32
   config.eval_frequency = 100
-  config.num_train_steps = 5000  # 20000
+  config.num_train_steps = 5001  # 20000
   config.num_eval_steps = -1
   config.learning_rate = 0.05
   config.weight_decay = 1e-1

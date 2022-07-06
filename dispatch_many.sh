@@ -5,9 +5,10 @@ run(){
     ./dispatch.sh text_classification $1 -l
 }
 
-run transformer
-run local
-run reformer
-run linformer
-run longformer
+run linear
+run bigbird
+run synthesizer
+run sparse
+run performer
+run sinkhorn
 

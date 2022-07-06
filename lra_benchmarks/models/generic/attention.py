@@ -1,8 +1,11 @@
-from typing import Any
+from typing import Any, Callable
 
 import flax.linen as nn
 import jax.numpy as jnp
 import jax.nn as jnn
+
+from lra_benchmarks.utils.array_utils import make_attention_mask
+
 
 class MaskedSelfAttention(nn.Module):
 
@@ -15,18 +18,20 @@ class MaskedSelfAttention(nn.Module):
     broadcast_dropout: Any=True
     dropout_rate: Any=0.
     max_len: int=512
+    attention_fn: Callable[[Any, Any, Any], Any] = nn.dot_product_attention
 
     @nn.compact
     def __call__(self, x, *, segmentation=None, causal_mask: bool=False, padding_mask=None,
                  deterministic: bool=False):
 
-        mask = nn.make_attention_mask(padding_mask, padding_mask)
-
-        if causal_mask:
-            mask = nn.combine_masks(mask, nn.make_causal_mask(x))
-
-        if segmentation is not None:
-            raise Exception("Not implemented yet")
+        _, mask = make_attention_mask(
+            seq_shape=x.shape[:-2],
+            dtype=self.dtype,
+            causal_mask=causal_mask,
+            padding_mask=padding_mask,
+            segmentation=segmentation,
+            use_attention_bias=False
+        )
 
         x = nn.SelfAttention(
                 num_heads=self.num_heads,
@@ -37,6 +42,7 @@ class MaskedSelfAttention(nn.Module):
                 use_bias=False,
                 broadcast_dropout=False,
                 dropout_rate=self.dropout_rate,
+                attention_fn=self.attention_fn,
         )(x, deterministic=deterministic, mask=mask)
 
         return x

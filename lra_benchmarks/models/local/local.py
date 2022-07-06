@@ -55,7 +55,7 @@ class LocalTransformerEncoder(nn.Module):
 
     @nn.compact
     def __call__(self, inputs, *, inputs_positions=None, inputs_segmentation=None, train=True):
-        block_module_kwargs={"attention_module_kwargs" : {"block_size": self.block_size}}
+        block_module_kwargs = {"attention_module_kwargs" : {"block_size": self.block_size}}
         x = generic.GenericEncoder(
             block_module=LocalTransformerBlock,
             vocab_size=self.vocab_size,

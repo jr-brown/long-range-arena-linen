@@ -11,14 +11,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Transformer model."""
-from functools import partial
+"""Configuration and hyperparameter sweeps."""
 
-from lra_benchmarks.models.generic import generic, attention
+from lra_benchmarks.text_classification.configs.test_configs import base_test
 
-TransformerBlock = partial(generic.GenericBlock,
-                           attention_module=attention.MaskedSelfAttention)
-TransformerEncoder = partial(generic.GenericEncoder, block_module=TransformerBlock)
-TransformerDualEncoder = partial(generic.GenericDualEncoder,
-                                 encoder_module=TransformerEncoder)
 
+def get_config():
+  """Get the default hyperparameter configuration."""
+  config = base_test.get_config()
+  config.model_type = "performer"
+  return config
+
+
+def get_hyper(hyper):
+  return hyper.product([])

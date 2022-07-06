@@ -8,7 +8,7 @@ This is a fork of google's long-range arena that aims to update it to use the la
 ### Key
 * T - Mostly implemented, but untested or being fixed
 * C - Runs on CPU
-* G - Runs on GPU and trains (default)
+* G - Runs on GPU and trains with good dynamics (default)
 
 ### Implemented Attention Mechanisms
 * Vanilla Transformer
@@ -21,6 +21,7 @@ This is a fork of google's long-range arena that aims to update it to use the la
 * BigBird (C)
 * Synthesizer (C)
 * Sparse Transformer (C)
+* Performer (C)
 
 ### Implemented Tasks
 * Text classification
