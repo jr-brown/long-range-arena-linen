@@ -57,19 +57,18 @@ class SinkhornTransformerEncoder(nn.Module):
 
     @nn.compact
     def __call__(self, inputs, *, inputs_positions=None, inputs_segmentation=None, train=True):
-        block = SinkhornTransformerBlock
         block_module_kwargs={"attention_module_kwargs" : {"block_size": self.block_size}}
 
         def custom_classifier_func(encoded):
             if self.classifier_pool == 'MEAN':
                 encoded = jnp.mean(encoded, axis=1)
-                encoded = nn.Dense(self.num_classes, name='logits')(encoded)
+                return nn.Dense(self.num_classes, name='logits')(encoded)
             else:
                 # TODO(yitay): Add other pooling methods.
-                raise ValueError('Pooling method not supported yet.')
+                raise ValueError(f'{self.classifier_pool} Pooling method not supported yet.')
 
         x = generic.GenericEncoder(
-            block_module=block,
+            block_module=SinkhornTransformerBlock,
             vocab_size=self.vocab_size,
             shared_embedding=self.shared_embedding,
             use_bfloat16=self.use_bfloat16,

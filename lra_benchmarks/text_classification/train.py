@@ -166,16 +166,16 @@ def main(argv):
     input_shape = (batch_size, max_length)
 
     model_kwargs = {
-            'vocab_size': vocab_size,
-            'emb_dim': config.emb_dim,
-            'num_heads': config.num_heads,
-            'num_layers': config.num_layers,
-            'qkv_dim': config.qkv_dim,
-            'mlp_dim': config.mlp_dim,
-            'max_len': max_length,
-            'classifier': True,
-            'num_classes': num_classes,
-            'classifier_pool': config.classifier_pool
+        'vocab_size': vocab_size,
+        'emb_dim': config.emb_dim,
+        'num_heads': config.num_heads,
+        'num_layers': config.num_layers,
+        'qkv_dim': config.qkv_dim,
+        'mlp_dim': config.mlp_dim,
+        'max_len': max_length,
+        'classifier': True,
+        'num_classes': num_classes,
+        'classifier_pool': config.classifier_pool
     }
 
     rng = random.PRNGKey(random_seed)
@@ -223,9 +223,7 @@ def main(argv):
         else:
             num_iter = range(num_eval_steps)
         for _, eval_batch in zip(num_iter, eval_iter):
-            # pylint: disable=protected-access
             eval_batch = shard(tree_map(lambda x: x._numpy(), eval_batch), n_devices=n_devices)
-            # pylint: enable=protected-access
             metrics = p_eval_step(t_state, eval_batch)
             eval_metrics.append(metrics)
         eval_metrics = common_utils.get_metrics(eval_metrics)

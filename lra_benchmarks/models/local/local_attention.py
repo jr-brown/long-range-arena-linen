@@ -19,9 +19,10 @@ from math import ceil
 
 from flax import linen as nn
 
-from jax import lax
 import jax.numpy as jnp
 import jax.nn as jnn
+
+from lra_benchmarks.utils.array_utils import make_block_attention_mask, pad_inputs
 
 
 class LocalAttention(nn.Module):
@@ -89,30 +90,16 @@ class LocalAttention(nn.Module):
         """
 
         assert inputs_q.ndim == 3
-
         orig_len = inputs_q.shape[-2]
 
-        # Done this way to avoid jnp.pad which doesn't work with jit
-        def pad_f(x, val=0):
-            new_x = jnp.full((x.shape[0], self.blocks_total_len, *x.shape[2:]), val, dtype=x.dtype)
-            new_x = new_x.at[:,:orig_len].set(x)
-            return new_x
-
-        inputs_q = pad_f(inputs_q)
-        if inputs_kv is None:
-            inputs_kv = inputs_q
-        else:
-            inputs_kv = pad_f(inputs_kv)
-
-        # logging.info(padding_mask)
-        padding_mask = pad_f(padding_mask, val=-1e9)
-        # logging.info(inputs_q)
+        inputs_q, inputs_kv, padding_mask = pad_inputs(orig_len, self.blocks_total_len, inputs_q,
+                                                       inputs_kv, padding_mask)
 
         features = self.out_features or inputs_q.shape[-1]
         qkv_features = self.qkv_features or inputs_q.shape[-1]
 
         assert qkv_features % self.num_heads == 0, (
-                'Memory dimension must be divisible by number of heads.')
+            'Memory dimension must be divisible by number of heads.')
         head_dim = qkv_features // self.num_heads
 
         dense = partial(nn.DenseGeneral,
@@ -127,7 +114,7 @@ class LocalAttention(nn.Module):
         # project inputs_q to multi-headed q/k/v
         # dimensions are then [bs, dims..., n_heads, n_features_per_head]
         qd, kd, vd = dense(name='query'), dense(name='key'), dense(name='value')
-        query, key, value = (qd(inputs_q), kd(inputs_kv), vd(inputs_kv))
+        query, key, value = qd(inputs_q), kd(inputs_kv), vd(inputs_kv)
 
         qlength = inputs_q.shape[-2]
         bs = inputs_q.shape[0]
@@ -144,47 +131,20 @@ class LocalAttention(nn.Module):
         block_value = jnp.reshape(
                 value, (bs, num_kv_blocks, self.block_size, self.num_heads, head_dim))
 
-        # create attention masks
-        mask_components = []
-
-        if causal_mask:
-            mask_components.append(nn.make_causal_mask(key))
-
-        if padding_mask is not None:
-            padding_mask = jnp.reshape(padding_mask, (bs * num_query_blocks,
-                                                      self.block_size))
-
-            if key_padding_mask is None:
-                key_padding_mask = padding_mask
-            else:
-                key_padding_mask = jnp.reshape(key_padding_mask,
-                                               (bs*num_query_blocks, self.block_size))
-
-            pad_mask = nn.make_attention_mask(padding_mask, key_padding_mask)
-            # To get into shape (bs, num_query_blocks, num_heads, block_size, block_size)
-            pad_mask = jnp.reshape(jnp.repeat(pad_mask, self.num_heads, axis=0),
-                                   (bs, num_query_blocks, self.num_heads, self.block_size,
-                                    self.block_size))
-            mask_components.append(pad_mask)
-
-        if segmentation is not None:
-            if key_segmentation is None:
-                key_segmentation = segmentation
-            segmentation_mask = nn.make_attention_mask(segmentation, key_segmentation)
-            segmentation_mask = jnp.reshape(jnp.repeat(segmentation_mask, self.num_heads, axis=1),
-                                            (bs, num_query_blocks, self.num_heads, self.block_size,
-                                             self.block_size))
-            mask_components.append(segmentation_mask)
-
-        if mask_components:
-            attention_mask = nn.combine_masks(*mask_components)
-
-            # attention mask in the form of attention bias
-            attention_bias = lax.select(
-                    attention_mask > 0, jnp.full(attention_mask.shape, 0.).astype(self.dtype),
-                    jnp.full(attention_mask.shape, -1e10).astype(self.dtype))
-        else:
-            attention_bias = None
+        _, attention_bias = make_block_attention_mask(
+            seq_shape=key[:-2],
+            bs=bs,
+            num_query_blocks=num_query_blocks,
+            block_size=self.block_size,
+            num_heads=self.num_heads,
+            dtype=self.dtype,
+            causal_mask=causal_mask,
+            padding_mask=padding_mask,
+            key_padding_mask=key_padding_mask,
+            segmentation=segmentation,
+            key_segmentation=key_segmentation,
+            use_attention_bias=True,
+        )
 
         if self.dropout_rng is None and not deterministic:
             dropout_rng = self.make_rng('dropout')

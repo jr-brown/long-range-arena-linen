@@ -29,6 +29,8 @@ from jax import lax
 import jax.numpy as jnp
 import jax.nn as jnn
 
+from lra_benchmarks.utils.array_utils import make_attention_mask
+
 
 
 def _build_global_mask(mask):
@@ -90,34 +92,17 @@ def _get_attention_result(query,
     """Helper function returning `[batch_size, seq_len, heads, features]` output."""
     # assumes query/key/value has shape `[batch_size, seq_len, heads, features]`.
 
-    mask_components = [] if mask is None else [mask]
-
-    if apply_causal_mask:
-        causal_mask = nn.make_causal_mask(jnp.zeros(query.shape[:-2]))
-        mask_components.append(causal_mask)
-
-    if padding_mask is not None:
-        if key_padding_mask is None:
-            key_padding_mask = padding_mask
-        padding_mask = nn.make_attention_mask(padding_mask, key_padding_mask)
-        mask_components.append(padding_mask)
-
-    if segmentation is not None:
-        if key_segmentation is None:
-            key_segmentation = segmentation
-        segmentation_mask = nn.make_attention_mask(segmentation, key_segmentation)
-        mask_components.append(segmentation_mask)
-
-    if mask_components:
-        attention_mask = nn.combine_masks(*mask_components)
-
-        # attention mask in the form of attention bias
-        attention_bias = lax.select(
-                attention_mask > 0,
-                jnp.full(attention_mask.shape, 0.).astype(dtype),
-                jnp.full(attention_mask.shape, -1e10).astype(dtype))
-    else:
-        attention_bias = None
+    _, attention_bias = make_attention_mask(
+        seq_shape=query.shape[:-2],
+        dtype=dtype,
+        causal_mask=apply_causal_mask,
+        padding_mask=padding_mask,
+        key_padding_mask=key_padding_mask,
+        segmentation=segmentation,
+        key_segmentation=key_segmentation,
+        use_attention_bias=True,
+        base_mask=mask
+    )
 
     return nn.dot_product_attention(
             query,
