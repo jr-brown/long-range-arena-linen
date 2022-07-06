@@ -22,6 +22,10 @@ from lra_benchmarks.models.longformer import longformer_attention
 from lra_benchmarks.models.generic import generic
 
 
+LongformerBlock = partial(generic.GenericBlock,
+                          attention_module=longformer_attention.LongformerSelfAttention)
+
+
 class LongformerEncoder(nn.Module):
     """Longformer Encoder."""
 
@@ -52,24 +56,17 @@ class LongformerEncoder(nn.Module):
     @nn.compact
     def __call__(self, inputs, *, global_mask=None, causal_mask: bool=False, inputs_positions=None,
                  inputs_segmentation=None, train=True):
-        block = generic.GenericBlock
-
         block_module_kwargs = {
-            "attention_module": longformer_attention.LongformerSelfAttention,
-            "attention_module_kwargs" : {
-                "sliding_window_size": self.sliding_window_size
-            }
+            "attention_module_kwargs" : {"sliding_window_size": self.sliding_window_size}
         }
 
         block_kwargs = {
             "causal_mask": causal_mask,
-            "attention_kwargs": {
-                "global_mask": global_mask,
-            }
+            "attention_kwargs": {"global_mask": global_mask}
         }
 
         x = generic.GenericEncoder(
-            block_module=block,
+            block_module=LongformerBlock,
             vocab_size=self.vocab_size,
             shared_embedding=self.shared_embedding,
             use_bfloat16=self.use_bfloat16,
@@ -79,7 +76,7 @@ class LongformerEncoder(nn.Module):
             num_layers=self.num_layers,
             qkv_dim=self.qkv_dim,
             mlp_dim=self.mlp_dim,
-            max_len=self.max_len,
+            max_len=self._max_len,
             dropout_rate=self.dropout_rate,
             attention_dropout_rate=self.attention_dropout_rate,
             learn_pos_emb=self.learn_pos_emb,
@@ -113,9 +110,6 @@ class LongformerDecoder(nn.Module):
 
     @nn.compact
     def __call__(self, inputs, *, global_mask=None, train: bool=False):
-        block = partial(generic.GenericBlock,
-                        attention_module=longformer_attention.LongformerSelfAttention)
-
         block_module_kwargs = {
             "attention_module_kwargs" : {"sliding_window_size": self.sliding_window_size}
         }
@@ -125,14 +119,14 @@ class LongformerDecoder(nn.Module):
         }
 
         x = generic.GenericDecoder(
-            block_module=block,
+            block_module=LongformerBlock,
             vocab_size=self.vocab_size,
             emb_dim=self.emb_dim,
             num_heads=self.num_heads,
             num_layers=self.num_layers,
             qkv_dim=self.qkv_dim,
             mlp_dim=self.mlp_dim,
-            max_len=self.max_len,
+            max_len=self._max_len,
             shift=self.shift,
             dropout_rate=self.dropout_rate,
             attention_dropout_rate=self.attention_dropout_rate,

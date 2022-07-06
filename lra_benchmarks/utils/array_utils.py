@@ -34,13 +34,15 @@ def combine_masks_into_bias(masks: list, *, dtype=None):
         return None
 
 
-def make_block_attention_mask(*, seq_shape, bs, num_query_blocks, block_size, num_heads, dtype=None,
-                              causal_mask=False, padding_mask=None, key_padding_mask=None,
-                              segmentation=None, key_segmentation=None, use_attention_bias=False):
+def make_block_attention_mask(*, bs, num_query_blocks, block_size, num_heads, seq_shape=None,
+                              dtype=None, causal_mask=False, padding_mask=None,
+                              key_padding_mask=None, segmentation=None, key_segmentation=None,
+                              use_attention_bias=False, base_mask=None):
     # create attention masks
-    mask_components = []
+    mask_components = [] if base_mask is None else [base_mask]
 
     if causal_mask:
+        assert seq_shape is not None
         mask_components.append(nn.make_causal_mask(jnp.zeros(seq_shape)))
 
     if padding_mask is not None:
@@ -77,12 +79,13 @@ def make_block_attention_mask(*, seq_shape, bs, num_query_blocks, block_size, nu
     return mask_components, attention_mask
 
 
-def make_attention_mask(*, seq_shape, dtype=None, causal_mask=False, padding_mask=None,
+def make_attention_mask(*, seq_shape=None, dtype=None, causal_mask=False, padding_mask=None,
                         key_padding_mask=None, segmentation=None, key_segmentation=None,
                         use_attention_bias=False, base_mask=None):
     mask_components = [] if base_mask is None else [base_mask]
 
     if causal_mask:
+        assert seq_shape is not None
         mask_components.append(nn.make_causal_mask(jnp.zeros(seq_shape)))
 
     if padding_mask is not None:

@@ -331,8 +331,7 @@ class GenericDecoder(nn.Module):
     block_module_kwargs: Optional[dict[str, Any]]=None
 
     @nn.compact
-    def __call__(self, inputs, *, train: bool=False,
-                 block_kwargs: Optional[dict[str, Any]]=None):
+    def __call__(self, inputs, *, train: bool=False, block_kwargs: Optional[dict[str, Any]]=None):
         """Applies Transformer model on the inputs.
 
         Args:

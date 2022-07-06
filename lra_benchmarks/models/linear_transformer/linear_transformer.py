@@ -11,15 +11,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Transformer model."""
+"""LinearTransformer model."""
 from functools import partial
 
-from lra_benchmarks.models.transformer import transformer_attention
+from lra_benchmarks.models.linear_transformer import linear_attention
 from lra_benchmarks.models.generic import generic
 
-TransformerBlock = partial(generic.GenericBlock,
-                           attention_module=transformer_attention.MaskedSelfAttention)
-TransformerEncoder = partial(generic.GenericEncoder, block_module=TransformerBlock)
-TransformerDualEncoder = partial(generic.GenericDualEncoder,
-                                 encoder_module=TransformerEncoder)
+
+LinearTransformerBlock = partial(generic.GenericBlock,
+                                 attention_module=linear_attention.LinearSelfAttention)
+
+LinearTransformerEncoder = partial(generic.GenericEncoder, block_module=LinearTransformerBlock)
+LinearTransformerDualEncoder = partial(generic.GenericDualEncoder,
+                                       encoder_module=LinearTransformerEncoder)
+LinearTransformerDecoder = partial(generic.GenericDecoder, block_module=LinearTransformerBlock)
 

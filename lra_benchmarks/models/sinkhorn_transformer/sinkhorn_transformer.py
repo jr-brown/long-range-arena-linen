@@ -22,10 +22,8 @@ from lra_benchmarks.models.sinkhorn_transformer import sinkhorn_attention
 from lra_benchmarks.models.generic import generic
 
 
-SinkhornTransformerBlock = partial(
-    generic.GenericBlock,
-    attention_module=sinkhorn_attention.SinkhornSelfAttention
-)
+SinkhornTransformerBlock = partial(generic.GenericBlock,
+                                   attention_module=sinkhorn_attention.SinkhornSelfAttention)
 
 
 class SinkhornTransformerEncoder(nn.Module):
@@ -78,7 +76,7 @@ class SinkhornTransformerEncoder(nn.Module):
             num_layers=self.num_layers,
             qkv_dim=self.qkv_dim,
             mlp_dim=self.mlp_dim,
-            max_len=self.max_len,
+            max_len=self._max_len,
             dropout_rate=self.dropout_rate,
             attention_dropout_rate=self.attention_dropout_rate,
             learn_pos_emb=self.learn_pos_emb,

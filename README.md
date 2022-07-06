@@ -17,6 +17,10 @@ This is a fork of google's long-range arena that aims to update it to use the la
 * Reformer
 * Linformer
 * Sinkhorn (C, but slow)
+* Linear Transformer (C)
+* BigBird (C)
+* Synthesizer (C)
+* Sparse Transformer (C)
 
 ### Implemented Tasks
 * Text classification
