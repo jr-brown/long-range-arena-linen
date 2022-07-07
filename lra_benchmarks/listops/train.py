@@ -11,8 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Document Classification tasks."""
+"""Main training script for the listops task."""
 from functools import partial
+import itertools
 import json
 import os
 import time
@@ -22,18 +23,23 @@ from absl import flags
 from absl import logging
 
 from flax import jax_utils
+import flax.linen as nn
 from flax.metrics import tensorboard
-from flax.training import checkpoints, common_utils
+from flax.training import checkpoints
+from flax.training import common_utils
 
 import jax
 from jax import random
 from jax.tree_util import tree_map
+import jax.nn as jnn
 import jax.numpy as jnp
 
+import optax
 from ml_collections import config_flags
+import numpy as np
 import tensorflow.compat.v2 as tf
 
-from lra_benchmarks.text_classification import input_pipeline
+from lra_benchmarks.listops import input_pipeline
 from lra_benchmarks.utils import train_utils
 from lra_benchmarks.utils.device_utils import get_devices, shard
 
@@ -45,7 +51,11 @@ flags.DEFINE_string('model_dir', default=None, help='Directory to store model da
 flags.DEFINE_string('data_dir', default=None, help='Directory containing datasets.')
 flags.DEFINE_bool('test_only', default=False, help='Run the evaluation on the test data.')
 
-CLASS_MAP = {'imdb_reviews': 2, 'yelp_reviews': 2, 'agnews': 2}
+
+def tohost(x):
+    """Collect batches from all devices to host and flatten batch dimensions."""
+    n_device, n_batch, *remaining_dims = x.shape
+    return np.array(x).reshape((n_device * n_batch,) + tuple(remaining_dims))
 
 
 def main(argv):
@@ -64,9 +74,9 @@ def main(argv):
     eval_freq = config.eval_frequency
     random_seed = config.random_seed
     model_type = config.model_type
-    num_classes = CLASS_MAP[config.task_name]
     max_length = config.max_length
     gpu_devices, n_devices = get_devices(config.available_devices)
+    model_kwargs = (config.model_kwargs.to_dict() if 'model_kwargs' in config else {})
 
     logging.info(f"GPU devices: {gpu_devices}")
 
@@ -74,17 +84,15 @@ def main(argv):
         summary_writer = tensorboard.SummaryWriter(
                 os.path.join(FLAGS.model_dir, 'summary'))
 
-    if batch_size % n_devices > 0:
+    if batch_size % jax.device_count() > 0:
         raise ValueError('Batch size must be divisible by the number of devices')
 
-    train_ds, eval_ds, test_ds, encoder = input_pipeline.get_tc_datasets(
+    train_ds, eval_ds, test_ds, encoder = input_pipeline.get_datasets(
             n_devices=n_devices,
             task_name=config.task_name,
             data_dir=FLAGS.data_dir,
             batch_size=batch_size,
-            fixed_vocab=None,
-            max_length=max_length,
-            num_data_entries=config.num_data_entries)
+            max_length=max_length)
 
     train_ds = train_ds.repeat()
     train_iter = iter(train_ds)
@@ -92,23 +100,22 @@ def main(argv):
     vocab_size = encoder.vocab_size
     logging.info('Vocab Size: %d', vocab_size)
 
-    model_kwargs = {
-        'vocab_size': vocab_size,
-        'emb_dim': config.emb_dim,
-        'num_heads': config.num_heads,
-        'num_layers': config.num_layers,
-        'qkv_dim': config.qkv_dim,
-        'mlp_dim': config.mlp_dim,
-        'max_len': max_length,
-        'classifier': True,
-        'num_classes': num_classes,
-        'classifier_pool': config.classifier_pool
-    }
+    model_kwargs.update({
+            'vocab_size': vocab_size,
+            'emb_dim': config.emb_dim,
+            'num_heads': config.num_heads,
+            'num_layers': config.num_layers,
+            'qkv_dim': config.qkv_dim,
+            'mlp_dim': config.mlp_dim,
+            'max_len': max_length,
+            'classifier': True,
+            'num_classes': 10
+    })
 
     rng = random.PRNGKey(random_seed)
     rng = jax.random.fold_in(rng, jax.process_index())
     rng, init_rng = random.split(rng)
-    # We init the first set of train PRNG keys, but update it afterwards inside
+    # We init the first set of dropout PRNG keys, but update it afterwards inside
     # the main pmap'd training update for performance.
     dropout_rngs = random.split(rng, n_devices)
 
@@ -128,9 +135,9 @@ def main(argv):
     # Replicate t_state, not sure if needed
     t_state = jax_utils.replicate(t_state, devices=gpu_devices)
 
-    p_train_step = jax.pmap(partial(train_utils.train_step, num_classes=num_classes),
+    p_train_step = jax.pmap(partial(train_utils.train_step, num_classes=10),
                             axis_name='batch', devices=gpu_devices)
-    p_eval_step = jax.pmap(partial(train_utils.eval_step, num_classes=num_classes),
+    p_eval_step = jax.pmap(partial(train_utils.eval_step, num_classes=10),
                            axis_name='batch', devices=gpu_devices)
     # p_pred_step = jax.pmap(predict_step, axis_name='batch', devices=gpu_devices)
 
@@ -147,8 +154,9 @@ def main(argv):
     logging.info('====================')
 
     for step, batch in zip(range(start_step, num_train_steps), train_iter):
-        batch = shard(tree_map(lambda x: x._numpy(), batch), n_devices=n_devices)
-        t_state, metrics, dropout_rngs = p_train_step(t_state, batch, dropout_rng=dropout_rngs)
+        batch = common_utils.shard(tree_map(lambda x: x._numpy(), batch))  # pylint: disable=protected-access
+        optimizer, metrics, dropout_rngs = p_train_step(
+                optimizer, batch, dropout_rng=dropout_rngs)
         metrics_all.append(metrics)
         logging.info('train in step: %d', step)
 
@@ -157,7 +165,7 @@ def main(argv):
                 step == num_train_steps - 1):
             if jax.process_index() == 0 and config.save_checkpoints:
                 # Save unreplicated optimizer + model state.
-                checkpoints.save_checkpoint(FLAGS.model_dir, jax_utils.unreplicate(t_state), step)
+                checkpoints.save_checkpoint(FLAGS.model_dir, jax_utils.unreplicate(optimizer), step)
 
         # Periodic metric handling.
         if step % eval_freq == 0 and step > 0:
@@ -169,8 +177,7 @@ def main(argv):
             summary['learning_rate'] = lr
             # Calculate (clipped) perplexity after averaging log-perplexities:
             summary['perplexity'] = jnp.clip(jnp.exp(summary['loss']), a_max=1.0e4)
-            logging.info('train in step: %d, loss: %.4f, acc: %.4f', step,
-                                      summary['loss'], summary['accuracy'])
+            logging.info('train in step: %d, loss: %.4f', step, summary['loss'])
             if jax.process_index() == 0:
                 tock = time.time()
                 steps_per_sec = eval_freq / (tock - tick)
