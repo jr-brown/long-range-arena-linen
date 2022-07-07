@@ -12,37 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Main training script for the listops task."""
-from functools import partial
-import itertools
-import json
-import os
-import time
-
 from absl import app
 from absl import flags
 from absl import logging
 
-from flax import jax_utils
-import flax.linen as nn
-from flax.metrics import tensorboard
-from flax.training import checkpoints
-from flax.training import common_utils
-
 import jax
 from jax import random
-from jax.tree_util import tree_map
-import jax.nn as jnn
-import jax.numpy as jnp
 
-import optax
 from ml_collections import config_flags
 import numpy as np
 import tensorflow.compat.v2 as tf
 
 from lra_benchmarks.listops import input_pipeline
 from lra_benchmarks.utils import train_utils
-from lra_benchmarks.utils.device_utils import get_devices, shard
-from lra_benchmarks.utils.misc_utils import r4
+from lra_benchmarks.utils.device_utils import get_devices
 
 
 FLAGS = flags.FLAGS
@@ -80,10 +63,6 @@ def main(argv):
 
     logging.info(f"GPU devices: {gpu_devices}")
 
-    if jax.process_index() == 0:
-        summary_writer = tensorboard.SummaryWriter(
-                os.path.join(FLAGS.model_dir, 'summary'))
-
     if batch_size % jax.device_count() > 0:
         raise ValueError('Batch size must be divisible by the number of devices')
 
@@ -95,7 +74,6 @@ def main(argv):
             max_length=max_length)
 
     train_ds = train_ds.repeat()
-    train_iter = iter(train_ds)
     input_shape = (batch_size, max_length)
     vocab_size = encoder.vocab_size
     logging.info('Vocab Size: %d', vocab_size)
@@ -125,78 +103,25 @@ def main(argv):
     t_state = train_utils.get_model(model_type, train_utils.create_train_state, model_kwargs,
                                     init_rng, input_shape, tx)
 
-    start_step = 0
-    if config.restore_checkpoints or FLAGS.test_only:
-        # Restore unreplicated optimizer + model state from last checkpoint.
-        t_state = checkpoints.restore_checkpoint(FLAGS.model_dir, t_state)
-        # Grab last step.
-        start_step = t_state.step
+    train_utils.main_train_eval(
+        t_state=t_state,
+        train_ds=train_ds,
+        eval_ds=eval_ds,
+        test_ds=test_ds,
+        n_devices=n_devices,
+        gpu_devices=gpu_devices,
+        dropout_rngs=dropout_rngs,
+        num_classes=10,
+        num_train_steps=num_train_steps,
+        num_eval_steps=num_eval_steps,
+        model_dir=FLAGS.model_dir,
+        save_checkpoints=config.save_checkpoints,
+        restore_checkpoints=config.restore_checkpoints,
+        checkpoint_freq=config.checkpoint_freq,
+        eval_freq=eval_freq,
+        test_only=FLAGS.test_only,
+    )
 
-    # Replicate t_state, not sure if needed
-    t_state = jax_utils.replicate(t_state, devices=gpu_devices)
-
-    p_train_step = jax.pmap(partial(train_utils.train_step, num_classes=10),
-                            axis_name='batch', devices=gpu_devices)
-    p_eval_step = jax.pmap(partial(train_utils.eval_step, num_classes=10),
-                           axis_name='batch', devices=gpu_devices)
-    # p_pred_step = jax.pmap(predict_step, axis_name='batch', devices=gpu_devices)
-
-    if FLAGS.test_only:
-        with tf.io.gfile.GFile(os.path.join(FLAGS.model_dir, 'results.json'),
-                                                      'w') as f:
-            test_summary = train_utils.run_eval(test_ds, t_state, p_eval_step, n_devices=n_devices)
-            json.dump(tree_map(lambda x: x.tolist(), test_summary), f)
-        return
-
-    metrics_all = []
-    tick = time.time()
-    logging.info('Starting training')
-    logging.info('====================')
-
-    for step, batch in zip(range(start_step, num_train_steps), train_iter):
-        batch = common_utils.shard(tree_map(lambda x: x._numpy(), batch))
-        t_state, metrics, dropout_rngs = p_train_step(t_state, batch, dropout_rng=dropout_rngs)
-        metrics_all.append(metrics)
-        logging.info('train in step: %d', step)
-
-        # Save a Checkpoint
-        if ((step % config.checkpoint_freq == 0 and step > 0) or
-                step == num_train_steps - 1):
-            if jax.process_index() == 0 and config.save_checkpoints:
-                # Save unreplicated optimizer + model state.
-                checkpoints.save_checkpoint(FLAGS.model_dir, jax_utils.unreplicate(t_state), step)
-
-        # Periodic metric handling.
-        if step % eval_freq == 0 and step > 0:
-            metrics_all = common_utils.get_metrics(metrics_all)
-            lr = metrics_all.pop('learning_rate').mean()
-            metrics_sums = tree_map(jnp.sum, metrics_all)
-            denominator = metrics_sums.pop('denominator')
-            summary = tree_map(lambda x: x / denominator, metrics_sums)  # pylint: disable=cell-var-from-loop
-            summary['learning_rate'] = lr
-            # Calculate (clipped) perplexity after averaging log-perplexities:
-            summary['perplexity'] = jnp.clip(jnp.exp(summary['loss']), a_max=1.0e4)
-            logging.info(f"train in step: {step}, loss: {r4(summary['loss'])}, acc: {r4(summary['accuracy'])}")
-            if jax.process_index() == 0:
-                tock = time.time()
-                steps_per_sec = eval_freq / (tock - tick)
-                tick = tock
-                summary_writer.scalar('steps per second', steps_per_sec, step)
-                for key, val in summary.items():
-                    summary_writer.scalar(f'train_{key}', val, step)
-                summary_writer.flush()
-            # Reset metric accumulation for next evaluation cycle.
-            metrics_all = []
-
-            # Eval Metrics
-            eval_summary = train_utils.run_eval(eval_ds, t_state, p_eval_step, n_devices=n_devices,
-                                                num_eval_steps=num_eval_steps)
-            logging.info('eval in step: %d, loss: %.4f, acc: %.4f', step,
-                                      eval_summary['loss'], eval_summary['accuracy'])
-            if jax.process_index() == 0:
-                for key, val in eval_summary.items():
-                    summary_writer.scalar(f'eval_{key}', val, step)
-                summary_writer.flush()
 
 
 if __name__ == '__main__':

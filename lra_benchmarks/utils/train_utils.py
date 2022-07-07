@@ -13,18 +13,24 @@
 # limitations under the License.
 """This contains utility functions for model training and evaluation."""
 from functools import partial
+from absl import logging
 import itertools
-
-from flax import linen as nn
-from flax.training import common_utils, train_state
+import json
+import os
+import time
 
 import jax
 import jax.numpy as jnp
 from jax import random
 from jax.tree_util import tree_map
 
-import optax
+from flax import jax_utils
+from flax import linen as nn
+from flax.metrics import tensorboard
+from flax.training import common_utils, train_state, checkpoints
 
+import tensorflow.compat.v2 as tf
+import optax
 import numpy as onp
 
 from lra_benchmarks.models.bigbird import bigbird
@@ -41,6 +47,7 @@ from lra_benchmarks.models.synthesizer import synthesizer
 from lra_benchmarks.models.transformer import transformer
 
 from lra_benchmarks.utils.device_utils import shard
+from lra_benchmarks.utils.misc_utils import r4
 
 
 def get_model(model_type, create_model_fn, model_kwargs, *create_model_args):
@@ -279,4 +286,101 @@ def run_eval(eval_ds, t_state, p_eval_step, n_devices=None, num_eval_steps=-1):
     eval_summary['perplexity'] = jnp.clip(
             jnp.exp(eval_summary['loss']), a_max=1.0e4)
     return eval_summary
+
+
+def main_train_eval(
+    t_state,
+    train_ds,
+    eval_ds,
+    test_ds,
+    n_devices,
+    gpu_devices,
+    dropout_rngs,
+    num_classes,
+    num_train_steps,
+    num_eval_steps,
+    model_dir,
+    save_checkpoints,
+    restore_checkpoints,
+    checkpoint_freq,
+    eval_freq,
+    test_only,
+):
+
+    start_step = 0
+    if restore_checkpoints or test_only:
+        # Restore unreplicated optimizer + model state from last checkpoint.
+        t_state = checkpoints.restore_checkpoint(model_dir, t_state)
+        # Grab last step.
+        start_step = t_state.step
+
+    # Replicate t_state onto gpu
+    t_state = jax_utils.replicate(t_state, devices=gpu_devices)
+
+    p_train_step = jax.pmap(partial(train_step, num_classes=num_classes),
+                            axis_name='batch', devices=gpu_devices)
+    p_eval_step = jax.pmap(partial(eval_step, num_classes=num_classes),
+                           axis_name='batch', devices=gpu_devices)
+    # p_pred_step = jax.pmap(predict_step, axis_name='batch', devices=gpu_devices)
+
+    if test_only:
+        with tf.io.gfile.GFile(os.path.join(model_dir, 'results.json'), 'w') as f:
+            test_summary = run_eval(test_ds, t_state, p_eval_step, n_devices=n_devices)
+            json.dump(tree_map(lambda x: x.tolist(), test_summary), f)
+        return
+
+    if jax.process_index() == 0:
+        summary_writer = tensorboard.SummaryWriter(
+                os.path.join(model_dir, 'summary'))
+
+    metrics_all = []
+    tick = time.time()
+    train_iter = iter(train_ds)
+    logging.info('Starting training')
+    logging.info('====================')
+
+    for step, batch in zip(range(start_step, num_train_steps), train_iter):
+        batch = shard(tree_map(lambda x: x._numpy(), batch), n_devices=n_devices)
+        t_state, metrics, dropout_rngs = p_train_step(t_state, batch, dropout_rng=dropout_rngs)
+        metrics_all.append(metrics)
+        logging.info('train in step: %d', step)
+
+        # Save a Checkpoint
+        if ((step % checkpoint_freq == 0 and step > 0) or
+                step == num_train_steps - 1):
+            if jax.process_index() == 0 and save_checkpoints:
+                # Save unreplicated optimizer + model state.
+                checkpoints.save_checkpoint(model_dir, jax_utils.unreplicate(t_state), step)
+
+        # Periodic metric handling.
+        if step % eval_freq == 0 and step > 0:
+            metrics_all = common_utils.get_metrics(metrics_all)
+            lr = metrics_all.pop('learning_rate').mean()
+            metrics_sums = tree_map(jnp.sum, metrics_all)
+            denominator = metrics_sums.pop('denominator')
+            summary = tree_map(lambda x: x / denominator, metrics_sums)  # pylint: disable=cell-var-from-loop
+            summary['learning_rate'] = lr
+            # Calculate (clipped) perplexity after averaging log-perplexities:
+            summary['perplexity'] = jnp.clip(jnp.exp(summary['loss']), a_max=1.0e4)
+            logging.info(f"train in step: {step}, loss: {r4(summary['loss'])}, acc: {r4(summary['accuracy'])}")
+            if jax.process_index() == 0:
+                tock = time.time()
+                steps_per_sec = eval_freq / (tock - tick)
+                tick = tock
+                summary_writer.scalar('steps per second', steps_per_sec, step)
+                for key, val in summary.items():
+                    summary_writer.scalar(f'train_{key}', val, step)
+                summary_writer.flush()
+            # Reset metric accumulation for next evaluation cycle.
+            metrics_all = []
+
+            # Eval Metrics
+            eval_summary = run_eval(eval_ds, t_state, p_eval_step, n_devices=n_devices,
+                                                num_eval_steps=num_eval_steps)
+            logging.info('eval in step: %d, loss: %.4f, acc: %.4f', step,
+                                      eval_summary['loss'], eval_summary['accuracy'])
+            if jax.process_index() == 0:
+                for key, val in eval_summary.items():
+                    summary_writer.scalar(f'eval_{key}', val, step)
+                summary_writer.flush()
 
