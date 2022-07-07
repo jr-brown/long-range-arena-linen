@@ -230,15 +230,9 @@ def compute_metrics(logits, labels, weights, *, num_classes):
     return metrics
 
 
-def train_step(t_state, batch, *, num_classes, dropout_rng=None):
-    """Perform a single training step."""
-    train_keys = ['inputs', 'targets']
-    (inputs, targets) = [batch.get(k, None) for k in train_keys]
-
-    # We handle PRNG splitting inside the top pmap, rather
-    # than handling it outside in the training loop - doing the
-    # latter can add some stalls to the devices.
-    dropout_rng, new_dropout_rng = random.split(dropout_rng)
+def stnd_get_loss_fn_and_targets(t_state, batch, dropout_rng, *, num_classes):
+    keys = ['inputs', 'targets']
+    (inputs, targets) = [batch.get(k, None) for k in keys]
 
     def loss_fn(params):
         """Loss function used for training."""
@@ -248,6 +242,22 @@ def train_step(t_state, batch, *, num_classes, dropout_rng=None):
                 logits, targets, num_classes=num_classes, weights=None)
         mean_loss = loss / weight_sum
         return mean_loss, logits
+
+    return loss_fn, targets
+
+
+def train_step(t_state, batch, dropout_rng, *, num_classes, get_loss_fn_and_targets_fn=None):
+    """Perform a single training step."""
+    # We handle PRNG splitting inside the top pmap, rather
+    # than handling it outside in the training loop - doing the
+    # latter can add some stalls to the devices.
+    dropout_rng, new_dropout_rng = random.split(dropout_rng)
+
+    if get_loss_fn_and_targets_fn is None:
+        get_loss_fn_and_targets_fn = stnd_get_loss_fn_and_targets
+
+    loss_fn, targets = get_loss_fn_and_targets_fn(t_state, batch, dropout_rng,
+                                                  num_classes=num_classes)
 
     (_, logits), grads = jax.value_and_grad(loss_fn, has_aux=True)(t_state.params)
     grads = jax.lax.pmean(grads, 'batch')
@@ -260,10 +270,17 @@ def train_step(t_state, batch, *, num_classes, dropout_rng=None):
     return new_t_state, metrics, new_dropout_rng
 
 
-def eval_step(t_state, batch, *, num_classes):
-    eval_keys = ['inputs', 'targets']
-    (inputs, targets) = [batch.get(k, None) for k in eval_keys]
+def stnd_get_logits_and_targets(t_state, batch):
+    keys = ['inputs', 'targets']
+    (inputs, targets) = [batch.get(k, None) for k in keys]
     logits = t_state.apply_fn({'params': t_state.params}, inputs, train=False)
+    return logits, targets
+
+
+def eval_step(t_state, batch, *, num_classes, get_logits_and_targets_fn=None):
+    if get_logits_and_targets_fn is None:
+        get_logits_and_targets_fn = stnd_get_logits_and_targets
+    logits, targets = get_logits_and_targets_fn(t_state, batch)
     return compute_metrics(logits, targets, None, num_classes=num_classes)
 
 
@@ -288,24 +305,25 @@ def run_eval(eval_ds, t_state, p_eval_step, n_devices=None, num_eval_steps=-1):
     return eval_summary
 
 
-def main_train_eval(
-    t_state,
-    train_ds,
-    eval_ds,
-    test_ds,
-    n_devices,
-    gpu_devices,
-    dropout_rngs,
-    num_classes,
-    num_train_steps,
-    num_eval_steps,
-    model_dir,
-    save_checkpoints,
-    restore_checkpoints,
-    checkpoint_freq,
-    eval_freq,
-    test_only,
-):
+def main_train_eval(t_state,
+                    train_ds,
+                    eval_ds,
+                    test_ds,
+                    n_devices,
+                    gpu_devices,
+                    dropout_rngs,
+                    num_classes,
+                    num_train_steps,
+                    num_eval_steps,
+                    model_dir,
+                    save_checkpoints,
+                    restore_checkpoints,
+                    checkpoint_freq,
+                    eval_freq,
+                    test_only,
+                    test_on_eval=False,
+                    get_loss_fn_and_targets_fn=None,
+                    get_logits_and_targets_fn=None):
 
     start_step = 0
     if restore_checkpoints or test_only:
@@ -317,9 +335,11 @@ def main_train_eval(
     # Replicate t_state onto gpu
     t_state = jax_utils.replicate(t_state, devices=gpu_devices)
 
-    p_train_step = jax.pmap(partial(train_step, num_classes=num_classes),
+    p_train_step = jax.pmap(partial(train_step, num_classes=num_classes,
+                                    get_loss_fn_and_targets_fn=get_loss_fn_and_targets_fn),
                             axis_name='batch', devices=gpu_devices)
-    p_eval_step = jax.pmap(partial(eval_step, num_classes=num_classes),
+    p_eval_step = jax.pmap(partial(eval_step, num_classes=num_classes,
+                                   get_logits_and_targets_fn=get_logits_and_targets_fn),
                            axis_name='batch', devices=gpu_devices)
     # p_pred_step = jax.pmap(predict_step, axis_name='batch', devices=gpu_devices)
 
@@ -341,7 +361,7 @@ def main_train_eval(
 
     for step, batch in zip(range(start_step, num_train_steps), train_iter):
         batch = shard(tree_map(lambda x: x._numpy(), batch), n_devices=n_devices)
-        t_state, metrics, dropout_rngs = p_train_step(t_state, batch, dropout_rng=dropout_rngs)
+        t_state, metrics, dropout_rngs = p_train_step(t_state, batch, dropout_rngs)
         metrics_all.append(metrics)
         logging.info('train in step: %d', step)
 
@@ -383,4 +403,17 @@ def main_train_eval(
                 for key, val in eval_summary.items():
                     summary_writer.scalar(f'eval_{key}', val, step)
                 summary_writer.flush()
+
+            if test_on_eval:
+                # Test eval
+                # Eval Metrics
+                logging.info('Testing...')
+                test_summary = run_eval(test_ds, t_state, p_eval_step, n_devices=n_devices,
+                                        num_eval_steps=num_eval_steps)
+                logging.info('test in step: %d, loss: %.4f, acc: %.4f', step,
+                                          test_summary['loss'], test_summary['accuracy'])
+                if jax.process_index() == 0:
+                    for key, val in test_summary.items():
+                        summary_writer.scalar(f'test_{key}', val, step)
+                    summary_writer.flush()
 
