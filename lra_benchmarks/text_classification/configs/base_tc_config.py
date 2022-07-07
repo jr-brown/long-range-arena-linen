@@ -21,8 +21,8 @@ def get_config():
   """Get the default hyperparameter configuration."""
   config = ml_collections.ConfigDict()
   config.batch_size = 32
-  config.eval_frequency = 100
-  config.num_train_steps = 5001  # 20000
+  config.eval_frequency = 50
+  config.num_train_steps = 5001
   config.num_eval_steps = -1
   config.learning_rate = 0.05
   config.weight_decay = 1e-1
@@ -33,11 +33,11 @@ def get_config():
   config.max_predict_token_length = 50
   config.save_checkpoints = True
   config.restore_checkpoints = True
-  config.checkpoint_freq = 2500  # 10000
+  config.checkpoint_freq = 2500
   config.random_seed = 0
   config.prompt = ""
   config.factors = "constant * linear_warmup * rsqrt_decay"
-  config.warmup = 8000
+  config.warmup = 2000
   config.classifier_pool = "CLS"
 
   config.max_length = 1000
@@ -48,8 +48,10 @@ def get_config():
   config.qkv_dim = 256
   config.mlp_dim = 1024
   config.num_data_entries = None
+
   config.available_devices = [2,3]
   config.task_name = "yelp_reviews"
+  config.data_dir = None
 
   config.trial = 0  # dummy for repeated runs.
   return config

@@ -42,13 +42,13 @@ import tensorflow.compat.v2 as tf
 from lra_benchmarks.listops import input_pipeline
 from lra_benchmarks.utils import train_utils
 from lra_benchmarks.utils.device_utils import get_devices, shard
+from lra_benchmarks.utils.misc_utils import r4
 
 
 FLAGS = flags.FLAGS
 
 config_flags.DEFINE_config_file('config', None, 'Training configuration.', lock_config=True)
 flags.DEFINE_string('model_dir', default=None, help='Directory to store model data.')
-flags.DEFINE_string('data_dir', default=None, help='Directory containing datasets.')
 flags.DEFINE_bool('test_only', default=False, help='Run the evaluation on the test data.')
 
 
@@ -90,7 +90,7 @@ def main(argv):
     train_ds, eval_ds, test_ds, encoder = input_pipeline.get_datasets(
             n_devices=n_devices,
             task_name=config.task_name,
-            data_dir=FLAGS.data_dir,
+            data_dir=config.data_dir,
             batch_size=batch_size,
             max_length=max_length)
 
@@ -154,9 +154,8 @@ def main(argv):
     logging.info('====================')
 
     for step, batch in zip(range(start_step, num_train_steps), train_iter):
-        batch = common_utils.shard(tree_map(lambda x: x._numpy(), batch))  # pylint: disable=protected-access
-        optimizer, metrics, dropout_rngs = p_train_step(
-                optimizer, batch, dropout_rng=dropout_rngs)
+        batch = common_utils.shard(tree_map(lambda x: x._numpy(), batch))
+        t_state, metrics, dropout_rngs = p_train_step(t_state, batch, dropout_rng=dropout_rngs)
         metrics_all.append(metrics)
         logging.info('train in step: %d', step)
 
@@ -165,7 +164,7 @@ def main(argv):
                 step == num_train_steps - 1):
             if jax.process_index() == 0 and config.save_checkpoints:
                 # Save unreplicated optimizer + model state.
-                checkpoints.save_checkpoint(FLAGS.model_dir, jax_utils.unreplicate(optimizer), step)
+                checkpoints.save_checkpoint(FLAGS.model_dir, jax_utils.unreplicate(t_state), step)
 
         # Periodic metric handling.
         if step % eval_freq == 0 and step > 0:
@@ -177,7 +176,7 @@ def main(argv):
             summary['learning_rate'] = lr
             # Calculate (clipped) perplexity after averaging log-perplexities:
             summary['perplexity'] = jnp.clip(jnp.exp(summary['loss']), a_max=1.0e4)
-            logging.info('train in step: %d, loss: %.4f', step, summary['loss'])
+            logging.info(f"train in step: {step}, loss: {r4(summary['loss'])}, acc: {r4(summary['accuracy'])}")
             if jax.process_index() == 0:
                 tock = time.time()
                 steps_per_sec = eval_freq / (tock - tick)

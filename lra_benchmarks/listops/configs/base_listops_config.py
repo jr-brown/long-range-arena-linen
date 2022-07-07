@@ -21,7 +21,7 @@ def get_config():
   config = ml_collections.ConfigDict()
   config.batch_size = 32
   config.eval_frequency = 50
-  config.num_train_steps = 5000
+  config.num_train_steps = 5001
   config.num_eval_steps = 99999
   config.learning_rate = 0.05
   config.weight_decay = 1e-1
@@ -32,7 +32,7 @@ def get_config():
   config.max_predict_token_length = 50
   config.save_checkpoints = True
   config.restore_checkpoints = True
-  config.checkpoint_freq = 10000
+  config.checkpoint_freq = 2500
   config.random_seed = 0
   config.prompt = ""
   config.factors = "constant * linear_warmup * rsqrt_decay"
@@ -47,6 +47,10 @@ def get_config():
   config.num_layers = 4
   config.qkv_dim = 512
   config.mlp_dim = 1024
+
+  config.available_devices = [2,3]
+  config.task_name = "basic"
+  config.data_dir = "google_datasets/listops-1000/"
 
   config.trial = 0  # dummy for repeated runs.
   return config

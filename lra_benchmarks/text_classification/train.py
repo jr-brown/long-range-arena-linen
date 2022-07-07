@@ -36,13 +36,13 @@ import tensorflow.compat.v2 as tf
 from lra_benchmarks.text_classification import input_pipeline
 from lra_benchmarks.utils import train_utils
 from lra_benchmarks.utils.device_utils import get_devices, shard
+from lra_benchmarks.utils.misc_utils import r4
 
 
 FLAGS = flags.FLAGS
 
 config_flags.DEFINE_config_file('config', None, 'Training configuration.', lock_config=True)
 flags.DEFINE_string('model_dir', default=None, help='Directory to store model data.')
-flags.DEFINE_string('data_dir', default=None, help='Directory containing datasets.')
 flags.DEFINE_bool('test_only', default=False, help='Run the evaluation on the test data.')
 
 CLASS_MAP = {'imdb_reviews': 2, 'yelp_reviews': 2, 'agnews': 2}
@@ -80,7 +80,7 @@ def main(argv):
     train_ds, eval_ds, test_ds, encoder = input_pipeline.get_tc_datasets(
             n_devices=n_devices,
             task_name=config.task_name,
-            data_dir=FLAGS.data_dir,
+            data_dir=config.data_dir,
             batch_size=batch_size,
             fixed_vocab=None,
             max_length=max_length,
@@ -169,8 +169,7 @@ def main(argv):
             summary['learning_rate'] = lr
             # Calculate (clipped) perplexity after averaging log-perplexities:
             summary['perplexity'] = jnp.clip(jnp.exp(summary['loss']), a_max=1.0e4)
-            logging.info('train in step: %d, loss: %.4f, acc: %.4f', step,
-                                      summary['loss'], summary['accuracy'])
+            logging.info(f"train in step: {step}, loss: {r4(summary['loss'])}, acc: {r4(summary['accuracy'])}")
             if jax.process_index() == 0:
                 tock = time.time()
                 steps_per_sec = eval_freq / (tock - tick)

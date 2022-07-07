@@ -2,5 +2,5 @@
 **/__pycache__/
 tf_datasets/
 trained_models/
-google_dataset/
+google_datasets/
 

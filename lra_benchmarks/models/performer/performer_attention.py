@@ -195,8 +195,8 @@ def make_fast_softmax_attention(qkv_dim,
                                 nonnegative_features=True,
                                 lax_scan_unroll=1):
     """Construct a fast softmax attention method."""
-    logging.info('Fast softmax attention: %s features and orthogonal=%s, renormalize=%s',
-                 nb_features, ortho_features, renormalize_attention)
+    # logging.info('Fast softmax attention: %s features and orthogonal=%s, renormalize=%s',
+    #              nb_features, ortho_features, renormalize_attention)
 
     if ortho_features:
         matrix_creator = partial(GaussianOrthogonalRandomMatrix,

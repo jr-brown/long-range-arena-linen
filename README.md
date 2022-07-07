@@ -16,15 +16,16 @@ This is a fork of google's long-range arena that aims to update it to use the la
 * Longformer
 * Reformer
 * Linformer
-* Sinkhorn (C, but slow)
-* Linear Transformer (C)
-* BigBird (C)
-* Synthesizer (C)
-* Sparse Transformer (C)
-* Performer (C)
+* Sinkhorn (note slow on CPU)
+* Linear Transformer
+* BigBird
+* Synthesizer
+* Sparse Transformer
+* Performer
 
 ### Implemented Tasks
 * Text classification
+* ListOps (T)
 
 
 ## Dependancy Installation
