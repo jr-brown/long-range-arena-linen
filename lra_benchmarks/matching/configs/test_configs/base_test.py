@@ -20,6 +20,7 @@ from lra_benchmarks.matching.configs import base_match_config
 def get_config():
   """Get the default hyperparameter configuration."""
   config = base_match_config.get_config()
+  config.num_eval_steps = 1
   config.batch_size = 4
   config.eval_frequency = 2
   config.num_train_steps = 3

@@ -51,15 +51,23 @@ def main(argv):
     num_eval_steps = config.num_eval_steps
     eval_freq = config.eval_frequency
     random_seed = config.random_seed
-    model_type = config.model_type
+    base_type = config.base_type
+    _model_type = config.model_type
     num_classes = CLASS_MAP[config.task_name]
     max_length = config.max_length
-    gpu_devices, n_devices = get_devices(config.available_devices)
 
+    gpu_devices, n_devices = get_devices(config.available_devices)
     logging.info(f"GPU devices: {gpu_devices}")
 
     if batch_size % n_devices > 0:
         raise ValueError('Batch size must be divisible by the number of devices')
+
+    if base_type == "encoder":
+        model_type = _model_type
+    elif base_type == "dual_encoder":
+        model_type = _model_type + "_dual"
+    else:
+        raise ValueError("Bad base_type, should be encoder or dual_encoder")
 
     train_ds, eval_ds, test_ds, encoder = input_pipeline.get_tc_datasets(
             n_devices=n_devices,

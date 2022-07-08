@@ -41,6 +41,7 @@ def get_config():
   config.classifier_pool = "CLS"
 
   config.max_length = 1000
+  config.base_type = "encoder"
 
   config.emb_dim = 256
   config.num_heads = 4

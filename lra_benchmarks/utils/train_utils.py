@@ -63,7 +63,7 @@ def get_model(model_type, create_model_fn, model_kwargs, *create_model_args):
         Initialized model.
     """
 
-    if model_type == 'sparse_transformer':
+    if model_type == 'sparse_transformer' or model_type == 'sparse_transformer_dual':
         model_kwargs['attention_patterns'] = [
             sparse_attention.Fixed1Pattern(block_size=50),
             sparse_attention.Fixed2Pattern(block_size=50, c=10)
@@ -71,19 +71,34 @@ def get_model(model_type, create_model_fn, model_kwargs, *create_model_args):
 
     model_map = {
         "transformer": transformer.TransformerEncoder,
+        "transformer_dual": transformer.TransformerDualEncoder,
         "local": local.LocalTransformerEncoder,
+        "local_dual": local.LocalTransformerDualEncoder,
         "longformer": longformer.LongformerEncoder,
+        "longformer_dual": longformer.LongformerDualEncoder,
         "reformer": reformer.ReformerEncoder,
+        "reformer_dual": reformer.ReformerDualEncoder,
         "linformer": linformer.LinformerEncoder,
+        "linformer_dual": linformer.LinformerDualEncoder,
         "sinkhorn": sinkhorn_transformer.SinkhornTransformerEncoder,
+        "sinkhorn_dual": sinkhorn_transformer.SinkhornTransformerDualEncoder,
         "linear_transformer": linear_transformer.LinearTransformerEncoder,
+        "linear_transformer_dual": linear_transformer.LinearTransformerDualEncoder,
         "bigbird": bigbird.BigBirdEncoder,
+        "bigbird_dual": bigbird.BigBirdDualEncoder,
         "synthesizer": synthesizer.SynthesizerEncoder,
+        "synthesizer_dual": synthesizer.SynthesizerDualEncoder,
         "sparse_transformer": sparse_transformer.SparseTransformerEncoder,
+        "usparse_transformer_dual": sparse_transformer.SparseTransformerDualEncoder,
         "performer": performer.PerformerEncoder,
+        "performer_dual": performer.PerformerDualEncoder,
     }
 
     return create_model_fn(model_map[model_type], model_kwargs, *create_model_args)
+
+
+def stnd_init_fn(init_rng):
+    pass
 
 
 def create_train_state(flax_module, model_kwargs, init_rng, input_shape, tx

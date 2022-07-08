@@ -42,6 +42,7 @@ def get_config():
 
   config.pooling_mode = "CLS"
   config.tokenizer = "char"
+  config.base_type = "dual_encoder"
 
   config.emb_dim = 128
   config.num_heads = 4

@@ -25,7 +25,8 @@ This is a fork of google's long-range arena that aims to update it to use the la
 
 ### Implemented Tasks
 * Text classification
-* ListOps (T)
+* ListOps (C)
+* Matching (T)
 
 
 ## Dependancy Installation
