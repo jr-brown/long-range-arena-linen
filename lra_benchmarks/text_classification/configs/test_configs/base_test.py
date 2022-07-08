@@ -21,6 +21,7 @@ def get_config():
   """Get the default hyperparameter configuration."""
   config = base_tc_config.get_config()
   config.batch_size = 4
+  config.num_eval_steps = 1
   config.eval_frequency = 2
   config.num_train_steps = 3
   config.num_heads = 2

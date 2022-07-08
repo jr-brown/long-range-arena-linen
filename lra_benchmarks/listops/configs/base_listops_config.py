@@ -19,7 +19,7 @@ import ml_collections
 def get_config():
   """Get the default hyperparameter configuration."""
   config = ml_collections.ConfigDict()
-  config.batch_size = 32
+  config.batch_size = 8
   config.eval_frequency = 50
   config.num_train_steps = 5001
   config.num_eval_steps = 99999
@@ -48,7 +48,7 @@ def get_config():
   config.qkv_dim = 512
   config.mlp_dim = 1024
 
-  config.available_devices = [2,3]
+  config.available_devices = [0,1,2,3]
   config.task_name = "basic"
   config.data_dir = "google_datasets/listops-1000/"
 

@@ -1,0 +1,28 @@
+2022-07-07 21:30:33.242375: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcublas.so.11'; dlerror: libcublas.so.11: cannot open shared object file: No such file or directory
+2022-07-07 21:30:33.242593: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcublasLt.so.11'; dlerror: libcublasLt.so.11: cannot open shared object file: No such file or directory
+2022-07-07 21:30:33.242717: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcufft.so.10'; dlerror: libcufft.so.10: cannot open shared object file: No such file or directory
+2022-07-07 21:30:33.242832: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcurand.so.10'; dlerror: libcurand.so.10: cannot open shared object file: No such file or directory
+2022-07-07 21:30:33.242946: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcusolver.so.11'; dlerror: libcusolver.so.11: cannot open shared object file: No such file or directory
+2022-07-07 21:30:33.243059: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcusparse.so.11'; dlerror: libcusparse.so.11: cannot open shared object file: No such file or directory
+2022-07-07 21:30:33.243174: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcudnn.so.8'; dlerror: libcudnn.so.8: cannot open shared object file: No such file or directory
+2022-07-07 21:30:33.243204: W tensorflow/core/common_runtime/gpu/gpu_device.cc:1850] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+Skipping registering GPU devices...
+I0707 21:30:33.243665 140279360997184 train.py:51] ===========Config Dict============
+I0707 21:30:33.243905 140279360997184 train.py:52] <ml_collections.config_flags.config_flags._ErrorConfig object at 0x7f93ed4227a0>
+Traceback (most recent call last):
+  File "/local/scratch-3/jrb239/long-range-arena-linen/lra_benchmarks/listops/train.py", line 128, in <module>
+    app.run(main)
+  File "/local/scratch-3/jrb239/.conda/envs/jax/lib/python3.10/site-packages/absl/app.py", line 312, in run
+    _run_main(main, args)
+  File "/local/scratch-3/jrb239/.conda/envs/jax/lib/python3.10/site-packages/absl/app.py", line 258, in _run_main
+    sys.exit(main(argv))
+  File "/local/scratch-3/jrb239/long-range-arena-linen/lra_benchmarks/listops/train.py", line 53, in main
+    batch_size = config.batch_size
+  File "/local/scratch-3/jrb239/.conda/envs/jax/lib/python3.10/site-packages/ml_collections/config_flags/config_flags.py", line 469, in __getattr__
+    self._ReportError()
+  File "/local/scratch-3/jrb239/.conda/envs/jax/lib/python3.10/site-packages/ml_collections/config_flags/config_flags.py", line 487, in _ReportError
+    raise IOError('Configuration is not available because of an earlier '
+OSError: Configuration is not available because of an earlier failure to load: Failed loading config file config_config
+  Attempted [Relative path]:
+    lra_benchmarks/listops/configs/sparse_base.py
+      [Errno 2] No such file or directory: 'lra_benchmarks/listops/configs/sparse_base.py'

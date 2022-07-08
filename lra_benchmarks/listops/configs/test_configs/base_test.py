@@ -20,8 +20,8 @@ from lra_benchmarks.listops.configs import base_listops_config
 def get_config():
   """Get the default hyperparameter configuration."""
   config = base_listops_config.get_config()
-  config.num_eval_steps = -1
   config.batch_size = 4
+  config.num_eval_steps = 1
   config.eval_frequency = 2
   config.num_train_steps = 3
   config.num_heads = 2

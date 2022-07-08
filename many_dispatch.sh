@@ -2,7 +2,7 @@
 
 run(){
     printf "\n\n### Listops | $1 ###\n\n"
-    ./dispatch.sh Listops $1 -l
+    ./dispatch.sh listops $1 -l
 }
 
 run transformer
