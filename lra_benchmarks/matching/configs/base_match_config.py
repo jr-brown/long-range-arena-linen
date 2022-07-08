@@ -42,12 +42,18 @@ def get_config():
 
   config.pooling_mode = "CLS"
   config.tokenizer = "char"
+  config.base_type = "dual_encoder"
 
   config.emb_dim = 128
   config.num_heads = 4
   config.num_layers = 4
   config.qkv_dim = 128
   config.mlp_dim = 512
+
+  config.vocab_file_path = "google_datasets/doc_retrieval/aan/"
+  config.task_name = "aan_pairs"
+  config.data_dir = "google_datasets/doc_retrieval/tsv_data/"
+  config.available_devices = [0,1,2,3]
 
   config.trial = 0  # dummy for repeated runs.
   return config

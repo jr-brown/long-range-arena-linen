@@ -41,6 +41,7 @@ def get_config():
   config.tied_weights = False
 
   config.pooling_mode = "CLS"
+  config.base_type = "encoder"
 
   config.emb_dim = 512
   config.num_heads = 8
