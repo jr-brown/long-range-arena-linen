@@ -1,0 +1,44 @@
+### logs/listops_bigbird.txt ###
+acc: 0.2975
+### logs/listops_linear.txt ###
+~~~ No information found ~~~
+### logs/listops_linformer.txt ###
+acc: 0.1700
+### logs/listops_local.txt ###
+acc: 0.3620
+### logs/listops_longformer.txt ###
+acc: 0.1595
+### logs/listops_performer.txt ###
+acc: 0.1715
+### logs/listops_reformer.txt ###
+acc: 0.3620
+### logs/listops_sinkhorn.txt ###
+acc: 0.1595
+### logs/listops_sparse.txt ###
+~~~ No information found ~~~
+### logs/listops_synthesizer.txt ###
+acc: 0.2960
+### logs/listops_transformer.txt ###
+acc: 0.2725
+### logs/text_classification_bigbird.txt ###
+acc: 0.7134
+### logs/text_classification_linear.txt ###
+acc: 0.7107
+### logs/text_classification_linformer.txt ###
+acc: 0.6081
+### logs/text_classification_local.txt ###
+acc: 0.6239
+### logs/text_classification_longformer.txt ###
+acc: 0.7178
+### logs/text_classification_performer.txt ###
+acc: 0.7108
+### logs/text_classification_reformer.txt ###
+acc: 0.6535
+### logs/text_classification_sinkhorn.txt ###
+acc: 0.6344
+### logs/text_classification_sparse.txt ###
+acc: 0.7227
+### logs/text_classification_synthesizer.txt ###
+acc: 0.6958
+### logs/text_classification_transformer.txt ###
+acc: 0.7100

@@ -97,10 +97,6 @@ def get_model(model_type, create_model_fn, model_kwargs, *create_model_args):
     return create_model_fn(model_map[model_type], model_kwargs, *create_model_args)
 
 
-def stnd_init_fn(init_rng):
-    pass
-
-
 def create_train_state(flax_module, model_kwargs, init_rng, input_shape, tx
                        ) -> train_state.TrainState:
     """Creates and initializes the model."""
