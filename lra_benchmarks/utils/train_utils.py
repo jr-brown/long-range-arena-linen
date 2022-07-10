@@ -97,14 +97,14 @@ def get_model(model_type, create_model_fn, model_kwargs, *create_model_args):
     return create_model_fn(model_map[model_type], model_kwargs, *create_model_args)
 
 
-def create_train_state(flax_module, model_kwargs, init_rng, input_shape, tx
+def create_train_state(flax_module, model_kwargs, init_rng, input_shapes, tx
                        ) -> train_state.TrainState:
     """Creates and initializes the model."""
 
     @partial(jax.jit, backend='cpu')
     def _create_train_state(init_rng):
         module = flax_module(**model_kwargs)
-        variables = module.init(init_rng, jnp.ones(input_shape), train=False)
+        variables = module.init(init_rng, *[jnp.ones(s) for s in input_shapes], train=False)
         params = variables['params']
         return train_state.TrainState.create(apply_fn=module.apply, params=params, tx=tx)
 

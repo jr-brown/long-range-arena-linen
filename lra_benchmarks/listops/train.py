@@ -109,7 +109,7 @@ def main(argv):
                                       FLAGS.config.weight_decay)
 
     t_state = train_utils.get_model(model_type, train_utils.create_train_state, model_kwargs,
-                                    init_rng, input_shape, tx)
+                                    init_rng, [input_shape], tx)
 
     train_utils.main_train_eval(
         t_state=t_state,
