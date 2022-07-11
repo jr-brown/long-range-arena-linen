@@ -35,7 +35,6 @@ All attention mechanisms are implemented and train well at text_classification t
 
 ## Changes to original codebase functionality
 * Removed cache that was used for 'efficient autoregressive decoding' due to the mechanisms used not being present / been moved in latest flax version, should be able to re-implement this behaviour with the decode options if needed
-* Removed 'inputs_segmentation' as they were not referenced outside of models and not implemented for all heads in the new flax version
 
 
 ## Known issues
