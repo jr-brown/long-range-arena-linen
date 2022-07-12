@@ -12,26 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Document Classification tasks."""
-from absl import app
-from absl import flags
-from absl import logging
+from absl import app, logging, flags
+from pprint import pformat
 
 import jax
 from jax import random
 
-from ml_collections import config_flags
 import tensorflow.compat.v2 as tf
 
 from lra_benchmarks.text_classification import input_pipeline
 from lra_benchmarks.utils import train_utils
 from lra_benchmarks.utils.device_utils import get_devices
+from lra_benchmarks.utils.config_utils import load_configs
 
 
 FLAGS = flags.FLAGS
 
-config_flags.DEFINE_config_file('config', None, 'Training configuration.', lock_config=True)
 flags.DEFINE_string('model_dir', default=None, help='Directory to store model data.')
 flags.DEFINE_bool('test_only', default=False, help='Run the evaluation on the test data.')
+flags.DEFINE_list('config_paths', default=None, help="Config files, can specify many and they will overwrite with last given having highest priority")
+
 
 CLASS_MAP = {'imdb_reviews': 2, 'yelp_reviews': 2, 'agnews': 2}
 
@@ -40,23 +40,25 @@ def main(argv):
     if len(argv) > 1:
         raise app.UsageError('Too many command-line arguments.')
 
+    tf.get_logger().setLevel('ERROR')
     tf.enable_v2_behavior()
 
-    config = FLAGS.config
-    logging.info('===========Config Dict============')
-    logging.info(config)
-    batch_size = config.batch_size
-    learning_rate = config.learning_rate
-    num_train_steps = config.num_train_steps
-    num_eval_steps = config.num_eval_steps
-    eval_freq = config.eval_frequency
-    random_seed = config.random_seed
-    base_type = config.base_type
-    _model_type = config.model_type
-    num_classes = CLASS_MAP[config.task_name]
-    max_length = config.max_length
+    logging.info("===========Config Paths===========\n" + pformat(FLAGS.config_paths))
+    config = load_configs(FLAGS.config_paths)
+    logging.info("===========Config Dict============\n" + pformat(config))
 
-    gpu_devices, n_devices = get_devices(config.available_devices)
+    batch_size = config["batch_size"]
+    learning_rate = config["learning_rate"]
+    num_train_steps = config["num_train_steps"]
+    num_eval_steps = config["num_eval_steps"]
+    eval_freq = config["eval_frequency"]
+    random_seed = config["random_seed"]
+    base_type = config["base_type"]
+    _model_type = config["model_type"]
+    num_classes = CLASS_MAP[config["task_name"]]
+    max_length = config["max_length"]
+
+    gpu_devices, n_devices = get_devices(config["available_devices"])
     logging.info(f"GPU devices: {gpu_devices}")
 
     if batch_size % n_devices > 0:
@@ -71,12 +73,12 @@ def main(argv):
 
     train_ds, eval_ds, test_ds, encoder = input_pipeline.get_tc_datasets(
             n_devices=n_devices,
-            task_name=config.task_name,
-            data_dir=config.data_dir,
+            task_name=config["task_name"],
+            data_dir=config["data_dir"],
             batch_size=batch_size,
             fixed_vocab=None,
             max_length=max_length,
-            num_data_entries=config.num_data_entries)
+            num_data_entries=config["num_data_entries"])
 
     train_ds = train_ds.repeat()
     input_shape = (batch_size, max_length)
@@ -85,15 +87,15 @@ def main(argv):
 
     model_kwargs = {
         'vocab_size': vocab_size,
-        'emb_dim': config.emb_dim,
-        'num_heads': config.num_heads,
-        'num_layers': config.num_layers,
-        'qkv_dim': config.qkv_dim,
-        'mlp_dim': config.mlp_dim,
+        'emb_dim': config["emb_dim"],
+        'num_heads': config["num_heads"],
+        'num_layers': config["num_layers"],
+        'qkv_dim': config["qkv_dim"],
+        'mlp_dim': config["mlp_dim"],
         'max_len': max_length,
         'classifier': True,
         'num_classes': num_classes,
-        'classifier_pool': config.classifier_pool
+        'classifier_pool': config["classifier_pool"]
     }
 
     rng = random.PRNGKey(random_seed)
@@ -103,8 +105,8 @@ def main(argv):
     # the main pmap'd training update for performance.
     dropout_rngs = random.split(rng, n_devices)
 
-    tx = train_utils.create_optimiser(config.factors, learning_rate, config.warmup,
-                                      FLAGS.config.weight_decay)
+    tx = train_utils.create_optimiser(config["factors"], learning_rate, config["warmup"],
+                                      config["weight_decay"])
 
     t_state = train_utils.get_model(model_type, train_utils.create_train_state, model_kwargs,
                                     init_rng, [input_shape], tx)
@@ -121,13 +123,14 @@ def main(argv):
         num_train_steps=num_train_steps,
         num_eval_steps=num_eval_steps,
         model_dir=FLAGS.model_dir,
-        save_checkpoints=config.save_checkpoints,
-        restore_checkpoints=config.restore_checkpoints,
-        checkpoint_freq=config.checkpoint_freq,
+        save_checkpoints=config["save_checkpoints"],
+        restore_checkpoints=config["restore_checkpoints"],
+        checkpoint_freq=config["checkpoint_freq"],
         eval_freq=eval_freq,
         test_only=FLAGS.test_only,
     )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run(main)
+

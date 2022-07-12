@@ -1,0 +1,38 @@
+# Base config for text classification
+
+batch_size: 32
+eval_frequency: 50
+num_train_steps: 5001
+num_eval_steps: -1
+learning_rate: 0.05
+weight_decay: 0.1
+max_target_length: 200
+max_eval_target_length: 200
+sampling_temperature: 0.6
+sampling_top_k: 20
+max_predict_token_length: 50
+save_checkpoints: True
+restore_checkpoints: True
+checkpoint_freq: 2500
+random_seed: 0
+prompt: ""
+factors: "constant * linear_warmup * rsqrt_decay"
+warmup: 2000
+classifier_pool: "CLS"
+
+max_length: 1000
+base_type: "encoder"
+
+emb_dim: 256
+num_heads: 4
+num_layers: 4
+qkv_dim: 256
+mlp_dim: 1024
+num_data_entries: null
+
+available_devices: [2,3]
+task_name: "yelp_reviews"
+data_dir: null
+
+trial: 0  # dummy for repeated runs.
+

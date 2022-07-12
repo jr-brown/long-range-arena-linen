@@ -1,0 +1,2 @@
+model_type: "sinkhorn"
+classifier_pool: "MEAN"

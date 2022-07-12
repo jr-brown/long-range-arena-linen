@@ -1,0 +1,2 @@
+model_type: "linformer"
+low_rank_features: 32
