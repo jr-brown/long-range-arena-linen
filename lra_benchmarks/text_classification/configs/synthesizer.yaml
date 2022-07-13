@@ -1,0 +1,4 @@
+model_type: "synthesizer"
+ignore_dot_product: True
+synthesizer_mode: "factorized_random"
+k: 32

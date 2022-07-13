@@ -1,0 +1,10 @@
+batch_size: 4
+num_eval_steps: 1
+eval_frequency: 2
+num_train_steps: 3
+num_heads: 2
+num_layers: 3
+num_data_entries: {'train': 1000, 'valid': 100, 'test': 100}
+save_checkpoints: False
+restore_checkpoints: False
+

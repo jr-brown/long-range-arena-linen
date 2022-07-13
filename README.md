@@ -5,28 +5,12 @@ This is a fork of google's long-range arena that aims to update it to use the la
 
 ## Status
 
-### Key
-* T - Mostly implemented, but untested or being fixed
-* C - Runs on CPU
-* G - Runs on GPU and trains with good dynamics (default)
-
-### Implemented Attention Mechanisms
-* Vanilla Transformer
-* Local Attention
-* Longformer
-* Reformer
-* Linformer
-* Sinkhorn (note slow on CPU)
-* Linear Transformer
-* BigBird
-* Synthesizer
-* Sparse Transformer
-* Performer
+All attention mechanisms are implemented and train well at text_classification task on GPU. Some discrepancy in achieved accuracy on listops.
 
 ### Implemented Tasks
 * Text classification
-* ListOps (C)
-* Matching (T)
+* ListOps
+* Matching (Runs, needs training dynamics to be verified)
 
 
 ## Dependancy Installation
@@ -51,7 +35,6 @@ This is a fork of google's long-range arena that aims to update it to use the la
 
 ## Changes to original codebase functionality
 * Removed cache that was used for 'efficient autoregressive decoding' due to the mechanisms used not being present / been moved in latest flax version, should be able to re-implement this behaviour with the decode options if needed
-* Removed 'inputs_segmentation' as they were not referenced outside of models and not implemented for all heads in the new flax version
 
 
 ## Known issues

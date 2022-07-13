@@ -84,20 +84,20 @@ class PerformerEncoder(nn.Module):
 
     vocab_size: Any
     shared_embedding: Any=None
-    use_bfloat16: Any=False
+    use_bfloat16: bool=False
     dtype: Any=jnp.float32
-    emb_dim: Any=512
-    num_heads: Any=8
-    num_layers: Any=6
-    qkv_dim: Any=512
-    mlp_dim: Any=2048
-    max_len: Any=512
-    dropout_rate: Any=0.1
-    attention_dropout_rate: Any=0.1
-    learn_pos_emb: Any=False
-    classifier: Any=False
-    classifier_pool: Any='CLS'
-    num_classes: Any=10
+    emb_dim: int=512
+    num_heads: int=8
+    num_layers: int=6
+    qkv_dim: int=512
+    mlp_dim: int=2048
+    max_len: int=512
+    dropout_rate: float=0.1
+    attention_dropout_rate: float=0.1
+    learn_pos_emb: bool=False
+    classifier: bool=False
+    classifier_pool: str='CLS'
+    num_classes: int=10
     attention_fn_cls: Any=_DEFAULT_ATTENTION_FN_CLS
     attention_fn_kwargs: Any=None
 
