@@ -1,0 +1,7 @@
+model_type: "performer"
+model_kwargs:
+  attention_fn_cls: "softmax"
+  attention_fn_kwargs:
+    ortho_scaling: 0.0
+    nb_features: 2
+

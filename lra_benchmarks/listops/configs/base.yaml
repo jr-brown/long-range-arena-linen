@@ -1,13 +1,11 @@
-# Base config for text classification
-
-batch_size: 32
+batch_size: 8
 eval_frequency: 50
 num_train_steps: 5001
-num_eval_steps: -1
+num_eval_steps: 99999
 learning_rate: 0.05
 weight_decay: 0.1
-max_target_length: 200
-max_eval_target_length: 200
+max_target_length: 200  # ignored
+max_eval_target_length: 200  # ignored
 sampling_temperature: 0.6
 sampling_top_k: 20
 max_predict_token_length: 50
@@ -17,24 +15,22 @@ checkpoint_freq: 2500
 random_seed: 0
 prompt: ""
 factors: "constant * linear_warmup * rsqrt_decay"
-warmup: 2000
+warmup: 1000
+tied_weights: False
 
 base_type: "encoder"
 
 model_kwargs:
-  emb_dim: 256
-  num_heads: 4
+  emb_dim: 512
+  num_heads: 8
   num_layers: 4
-  qkv_dim: 256
+  qkv_dim: 512
   mlp_dim: 1024
-  max_len: 1000
+  max_len: 2000
   classifier_pool: "CLS"
 
-num_data_entries: null
-
-available_devices: [2,3]
-task_name: "yelp_reviews"
-data_dir: null
+available_devices: [0,1,2,3]
+task_name: "basic"
+data_dir: "google_datasets/listops-1000/"
 
 trial: 0  # dummy for repeated runs.
-

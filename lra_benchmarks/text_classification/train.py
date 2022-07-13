@@ -44,6 +44,7 @@ def main(argv):
     tf.enable_v2_behavior()
 
     logging.info("===========Config Paths===========\n" + pformat(FLAGS.config_paths))
+
     config = load_configs(FLAGS.config_paths)
     logging.info("===========Config Dict============\n" + pformat(config))
 
@@ -56,7 +57,7 @@ def main(argv):
     base_type = config["base_type"]
     _model_type = config["model_type"]
     num_classes = CLASS_MAP[config["task_name"]]
-    max_length = config["max_length"]
+    model_kwargs = config["model_kwargs"]
 
     gpu_devices, n_devices = get_devices(config["available_devices"])
     logging.info(f"GPU devices: {gpu_devices}")
@@ -72,31 +73,26 @@ def main(argv):
         raise ValueError("Bad base_type, should be encoder or dual_encoder")
 
     train_ds, eval_ds, test_ds, encoder = input_pipeline.get_tc_datasets(
-            n_devices=n_devices,
-            task_name=config["task_name"],
-            data_dir=config["data_dir"],
-            batch_size=batch_size,
-            fixed_vocab=None,
-            max_length=max_length,
-            num_data_entries=config["num_data_entries"])
+        n_devices=n_devices,
+        task_name=config["task_name"],
+        data_dir=config["data_dir"],
+        batch_size=batch_size,
+        fixed_vocab=None,
+        max_length=model_kwargs["max_len"],
+        num_data_entries=config["num_data_entries"])
 
     train_ds = train_ds.repeat()
-    input_shape = (batch_size, max_length)
+    input_shape = (batch_size, model_kwargs["max_len"])
     vocab_size = encoder.vocab_size
     logging.info('Vocab Size: %d', vocab_size)
 
-    model_kwargs = {
+    model_kwargs.update({
         'vocab_size': vocab_size,
-        'emb_dim': config["emb_dim"],
-        'num_heads': config["num_heads"],
-        'num_layers': config["num_layers"],
-        'qkv_dim': config["qkv_dim"],
-        'mlp_dim': config["mlp_dim"],
-        'max_len': max_length,
         'classifier': True,
         'num_classes': num_classes,
-        'classifier_pool': config["classifier_pool"]
-    }
+    })
+
+    logging.info("========Final Model Kwargs========\n" + pformat(model_kwargs))
 
     rng = random.PRNGKey(random_seed)
     rng = jax.random.fold_in(rng, jax.process_index())
@@ -108,8 +104,7 @@ def main(argv):
     tx = train_utils.create_optimiser(config["factors"], learning_rate, config["warmup"],
                                       config["weight_decay"])
 
-    t_state = train_utils.get_model(model_type, train_utils.create_train_state, model_kwargs,
-                                    init_rng, [input_shape], tx)
+    t_state = train_utils.get_model(model_type, model_kwargs, init_rng, [input_shape], tx)
 
     train_utils.main_train_eval(
         t_state=t_state,
