@@ -1,6 +1,6 @@
-batch_size: 32
+batch_size: 16
 eval_frequency: 100
-num_train_steps: 5001
+num_train_steps: 2501
 num_eval_steps: 99999
 learning_rate: 0.05
 weight_decay: 0.1
@@ -11,18 +11,18 @@ sampling_top_k: 20
 max_predict_token_length: 50
 save_checkpoints: True
 restore_checkpoints: True
-checkpoint_freq: 2500
+checkpoint_freq: 1250
 random_seed: 0
 prompt: ""
 factors: "constant * linear_warmup * rsqrt_decay"
-warmup: 1000
+warmup: 500
 tied_weights: False
 
 base_type: "encoder"
 
 model_kwargs:
   emb_dim: 256
-  num_heads: 8
+  num_heads: 4
   num_layers: 6
   qkv_dim: 256
   mlp_dim: 1024

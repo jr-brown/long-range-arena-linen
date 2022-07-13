@@ -1,6 +1,6 @@
-batch_size: 32
+batch_size: 4
 eval_frequency: 100
-num_train_steps: 5001
+num_train_steps: 2501
 num_eval_steps: -1
 learning_rate: 0.05
 weight_decay: 0.1
@@ -11,21 +11,21 @@ sampling_top_k: 20
 max_predict_token_length: 50
 save_checkpoints: True
 restore_checkpoints: True
-checkpoint_freq: 2500
+checkpoint_freq: 1250
 random_seed: 0
 prompt: ""
 factors: "constant * linear_warmup * rsqrt_decay"
-warmup: 4000
+warmup: 2000
 
 tokenizer: "char"
 base_type: "dual_encoder"
 
 model_kwargs:
-  emb_dim: 64
+  emb_dim: 128
   num_heads: 4
   num_layers: 4
-  qkv_dim: 64
-  mlp_dim: 256
+  qkv_dim: 128
+  mlp_dim: 512
   max_len: 4000
   classifier_pool: "CLS"
 
