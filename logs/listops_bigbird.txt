@@ -1,0 +1,71 @@
+2022-07-11 12:16:26.734887: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcublas.so.11'; dlerror: libcublas.so.11: cannot open shared object file: No such file or directory
+2022-07-11 12:16:26.735248: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcublasLt.so.11'; dlerror: libcublasLt.so.11: cannot open shared object file: No such file or directory
+2022-07-11 12:16:26.735349: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcufft.so.10'; dlerror: libcufft.so.10: cannot open shared object file: No such file or directory
+2022-07-11 12:16:26.735447: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcurand.so.10'; dlerror: libcurand.so.10: cannot open shared object file: No such file or directory
+2022-07-11 12:16:26.735542: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcusolver.so.11'; dlerror: libcusolver.so.11: cannot open shared object file: No such file or directory
+2022-07-11 12:16:26.735637: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcusparse.so.11'; dlerror: libcusparse.so.11: cannot open shared object file: No such file or directory
+2022-07-11 12:16:26.735732: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libcudnn.so.8'; dlerror: libcudnn.so.8: cannot open shared object file: No such file or directory
+2022-07-11 12:16:26.735757: W tensorflow/core/common_runtime/gpu/gpu_device.cc:1850] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+Skipping registering GPU devices...
+I0711 12:16:26.736141 139838327244608 train.py:51] ===========Config Dict============
+I0711 12:16:26.736330 139838327244608 train.py:52] available_devices:
+- 0
+- 1
+- 2
+- 3
+base_type: encoder
+batch_size: 8
+checkpoint_freq: 2500
+data_dir: google_datasets/listops-1000/
+emb_dim: 512
+eval_frequency: 50
+factors: constant * linear_warmup * rsqrt_decay
+learning_rate: 0.05
+max_eval_target_length: 200
+max_length: 2000
+max_predict_token_length: 50
+max_target_length: 200
+mlp_dim: 1024
+model_type: bigbird
+num_eval_steps: 99999
+num_heads: 8
+num_layers: 4
+num_train_steps: 5001
+pooling_mode: CLS
+prompt: ''
+qkv_dim: 512
+random_seed: 0
+restore_checkpoints: true
+sampling_temperature: 0.6
+sampling_top_k: 20
+save_checkpoints: true
+task_name: basic
+tied_weights: false
+trial: 0
+warmup: 1000
+weight_decay: 0.1
+
+I0711 12:16:26.746581 139838327244608 xla_bridge.py:340] Unable to initialize backend 'tpu_driver': NOT_FOUND: Unable to find driver in registry given worker: 
+I0711 12:16:27.752600 139838327244608 xla_bridge.py:340] Unable to initialize backend 'rocm': NOT_FOUND: Could not find registered platform with name: "rocm". Available platform names are: Interpreter Host CUDA
+I0711 12:16:27.753250 139838327244608 xla_bridge.py:340] Unable to initialize backend 'tpu': module 'jaxlib.xla_extension' has no attribute 'get_tpu_client'
+I0711 12:16:27.753473 139838327244608 train.py:65] GPU devices: [GpuDevice(id=0, process_index=0), GpuDevice(id=1, process_index=0), GpuDevice(id=2, process_index=0), GpuDevice(id=3, process_index=0)]
+INFO:tensorflow:google_datasets/listops-1000/basic_train.tsv
+I0711 12:16:27.753613 139838327244608 input_pipeline.py:35] google_datasets/listops-1000/basic_train.tsv
+INFO:tensorflow:google_datasets/listops-1000/basic_val.tsv
+I0711 12:16:27.872065 139838327244608 input_pipeline.py:35] google_datasets/listops-1000/basic_val.tsv
+INFO:tensorflow:google_datasets/listops-1000/basic_test.tsv
+I0711 12:16:27.900902 139838327244608 input_pipeline.py:35] google_datasets/listops-1000/basic_test.tsv
+INFO:tensorflow:Finished preprocessing
+I0711 12:16:27.926450 139838327244608 input_pipeline.py:64] Finished preprocessing
+INFO:tensorflow:Building vocab
+I0711 12:16:27.926563 139838327244608 input_pipeline.py:65] Building vocab
+INFO:tensorflow:Processed 0
+I0711 12:16:28.082549 139838327244608 input_pipeline.py:78] Processed 0
+INFO:tensorflow:Processed 1000
+I0711 12:16:34.267746 139838327244608 input_pipeline.py:78] Processed 1000
+INFO:tensorflow:Finished processing vocab size=15
+I0711 12:16:34.278124 139838327244608 input_pipeline.py:82] Finished processing vocab size=15
+I0711 12:16:34.369694 139838327244608 train.py:87] Vocab Size: 17
+I0711 12:16:48.689172 139838327244608 checkpoints.py:253] Restoring checkpoint from trained_models/listops/bigbird/checkpoint_5000
+I0711 12:16:50.200245 139838327244608 train_utils.py:370] Starting training
+I0711 12:16:50.200444 139838327244608 train_utils.py:371] ====================
