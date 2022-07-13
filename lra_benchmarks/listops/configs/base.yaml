@@ -1,5 +1,5 @@
-batch_size: 8
-eval_frequency: 50
+batch_size: 32
+eval_frequency: 100
 num_train_steps: 5001
 num_eval_steps: 99999
 learning_rate: 0.05
@@ -21,10 +21,10 @@ tied_weights: False
 base_type: "encoder"
 
 model_kwargs:
-  emb_dim: 512
+  emb_dim: 256
   num_heads: 8
-  num_layers: 4
-  qkv_dim: 512
+  num_layers: 6
+  qkv_dim: 256
   mlp_dim: 1024
   max_len: 2000
   classifier_pool: "CLS"
