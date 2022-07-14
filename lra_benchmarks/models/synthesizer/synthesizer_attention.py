@@ -270,10 +270,10 @@ class SynthesizerAttention(nn.Module):
             query, key, value = qd(inputs_q), kd(inputs_kv), vd(inputs_kv)
 
         syn_weights_list = []
-        logging.info(self.synthesizer_mode)
+        # logging.info(self.synthesizer_mode)
         if 'random' in self.synthesizer_mode:
             if 'factorized_random' in self.synthesizer_mode:
-                logging.info('Using factorized random')
+                # logging.info('Using factorized random')
                 rand_syn_weights1 = self.param('random1', self.kernel_init,
                                                (self.num_heads, self.max_len, self.k))
                 rand_syn_weights2 = self.param('random2', self.kernel_init,

@@ -1,4 +1,6 @@
 model_type: "synthesizer"
-ignore_dot_product: True
-synthesizer_mode: "factorized_random"
-k: 32
+
+model_kwargs:
+  ignore_dot_product: True
+  synthesizer_mode: "factorized_random"
+  k: 32

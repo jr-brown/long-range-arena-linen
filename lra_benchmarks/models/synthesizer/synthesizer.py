@@ -63,7 +63,8 @@ class SynthesizerEncoder(nn.Module):
             "attention_module_kwargs" : {
                 "ignore_dot_product": self.ignore_dot_product,
                 "synthesizer_mode": self.synthesizer_mode,
-                "k": self.k
+                "k": self.k,
+                "block_size": self.block_size
             }
         }
 

@@ -49,6 +49,8 @@ from lra_benchmarks.models.transformer import transformer
 from lra_benchmarks.utils.device_utils import shard
 from lra_benchmarks.utils.misc_utils import r4
 
+from extra_models import extra_models
+
 
 def get_model(model_type, model_kwargs, init_rng, input_shapes, tx):
     """Create and initialize the model.
@@ -89,10 +91,12 @@ def get_model(model_type, model_kwargs, init_rng, input_shapes, tx):
         "synthesizer": synthesizer.SynthesizerEncoder,
         "synthesizer_dual": synthesizer.SynthesizerDualEncoder,
         "sparse_transformer": sparse_transformer.SparseTransformerEncoder,
-        "usparse_transformer_dual": sparse_transformer.SparseTransformerDualEncoder,
+        "sparse_transformer_dual": sparse_transformer.SparseTransformerDualEncoder,
         "performer": performer.PerformerEncoder,
         "performer_dual": performer.PerformerDualEncoder,
     }
+
+    model_map.update(extra_models)
 
     return create_train_state(model_map[model_type], model_kwargs, init_rng, input_shapes, tx)
 

@@ -1,2 +1,5 @@
 model_type: "linformer"
-low_rank_features: 32
+
+# This was in orginal configs but never actually made it to the attention mechanism!
+# model_kwargs:
+#   low_rank_features: 32

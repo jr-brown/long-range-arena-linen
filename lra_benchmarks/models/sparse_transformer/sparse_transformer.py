@@ -61,7 +61,7 @@ class SparseTransformerEncoder(nn.Module):
             use_cls_token = True
             # logging.info('Setting use cls token to true')
 
-        block_module_kwargs={
+        block_module_kwargs = {
             "attention_module_kwargs": {
                 "attention_patterns": self.attention_patterns,
                 "use_cls_token": use_cls_token,
