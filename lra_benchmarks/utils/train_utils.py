@@ -245,14 +245,17 @@ def compute_metrics(logits, labels, weights, *, num_classes):
     return metrics
 
 
-def stnd_get_loss_fn_and_targets(t_state, batch, dropout_rng, *, num_classes):
+def stnd_get_loss_fn_and_targets(t_state, batch, dropout_rng, *, num_classes, model_kwargs=None):
+    if model_kwargs is None:
+        model_kwargs = {}
+
     keys = ['inputs', 'targets']
     (inputs, targets) = [batch.get(k, None) for k in keys]
 
     def loss_fn(params):
         """Loss function used for training."""
         logits = t_state.apply_fn({'params': params}, inputs, train=True,
-                                  rngs={'dropout': dropout_rng})
+                                  rngs={'dropout': dropout_rng}, **model_kwargs)
         loss, weight_sum = compute_weighted_cross_entropy(
                 logits, targets, num_classes=num_classes, weights=None)
         mean_loss = loss / weight_sum
@@ -261,7 +264,8 @@ def stnd_get_loss_fn_and_targets(t_state, batch, dropout_rng, *, num_classes):
     return loss_fn, targets
 
 
-def train_step(t_state, batch, dropout_rng, *, num_classes, get_loss_fn_and_targets_fn=None):
+def train_step(t_state, batch, dropout_rng, *, num_classes, get_loss_fn_and_targets_fn=None,
+               model_kwargs=None):
     """Perform a single training step."""
     # We handle PRNG splitting inside the top pmap, rather
     # than handling it outside in the training loop - doing the
@@ -272,7 +276,8 @@ def train_step(t_state, batch, dropout_rng, *, num_classes, get_loss_fn_and_targ
         get_loss_fn_and_targets_fn = stnd_get_loss_fn_and_targets
 
     loss_fn, targets = get_loss_fn_and_targets_fn(t_state, batch, dropout_rng,
-                                                  num_classes=num_classes)
+                                                  num_classes=num_classes,
+                                                  model_kwargs=model_kwargs)
 
     (_, logits), grads = jax.value_and_grad(loss_fn, has_aux=True)(t_state.params)
     grads = jax.lax.pmean(grads, 'batch')
@@ -285,17 +290,19 @@ def train_step(t_state, batch, dropout_rng, *, num_classes, get_loss_fn_and_targ
     return new_t_state, metrics, new_dropout_rng
 
 
-def stnd_get_logits_and_targets(t_state, batch):
+def stnd_get_logits_and_targets(t_state, batch, model_kwargs=None):
+    if model_kwargs is None:
+        model_kwargs = {}
     keys = ['inputs', 'targets']
     (inputs, targets) = [batch.get(k, None) for k in keys]
-    logits = t_state.apply_fn({'params': t_state.params}, inputs, train=False)
+    logits = t_state.apply_fn({'params': t_state.params}, inputs, train=False, **model_kwargs)
     return logits, targets
 
 
-def eval_step(t_state, batch, *, num_classes, get_logits_and_targets_fn=None):
+def eval_step(t_state, batch, *, num_classes, get_logits_and_targets_fn=None, model_kwargs=None):
     if get_logits_and_targets_fn is None:
         get_logits_and_targets_fn = stnd_get_logits_and_targets
-    logits, targets = get_logits_and_targets_fn(t_state, batch)
+    logits, targets = get_logits_and_targets_fn(t_state, batch, model_kwargs)
     return compute_metrics(logits, targets, None, num_classes=num_classes)
 
 
@@ -320,25 +327,11 @@ def run_eval(eval_ds, t_state, p_eval_step, n_devices=None, num_eval_steps=-1):
     return eval_summary
 
 
-def main_train_eval(t_state,
-                    train_ds,
-                    eval_ds,
-                    test_ds,
-                    n_devices,
-                    gpu_devices,
-                    dropout_rngs,
-                    num_classes,
-                    num_train_steps,
-                    num_eval_steps,
-                    model_dir,
-                    save_checkpoints,
-                    restore_checkpoints,
-                    checkpoint_freq,
-                    eval_freq,
-                    test_only,
-                    test_on_eval=False,
-                    get_loss_fn_and_targets_fn=None,
-                    get_logits_and_targets_fn=None):
+def main_train_eval(
+        *, t_state, train_ds, eval_ds, test_ds, n_devices, gpu_devices, dropout_rngs, num_classes,
+        num_train_steps, num_eval_steps, model_dir, save_checkpoints, restore_checkpoints,
+        checkpoint_freq, eval_freq, test_only, test_on_eval=False, get_loss_fn_and_targets_fn=None,
+        get_logits_and_targets_fn=None):
 
     start_step = 0
     if restore_checkpoints or test_only:

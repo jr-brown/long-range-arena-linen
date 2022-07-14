@@ -34,7 +34,10 @@ flags.DEFINE_bool('test_only', default=False, help='Run the evaluation on the te
 flags.DEFINE_list('config_paths', default=None, help="Config files, can specify many and they will overwrite with last given having highest priority")
 
 
-def get_loss_fn_and_targets(t_state, batch, dropout_rng, *, num_classes):
+def get_loss_fn_and_targets(t_state, batch, dropout_rng, *, num_classes, model_kwargs=None):
+    if model_kwargs is None:
+        model_kwargs = {}
+
     train_keys = ['inputs1', 'inputs2', 'targets']
     (inputs1, inputs2, targets) = [batch.get(k, None) for k in train_keys]
 
@@ -50,7 +53,10 @@ def get_loss_fn_and_targets(t_state, batch, dropout_rng, *, num_classes):
     return loss_fn, targets
 
 
-def get_logits_and_targets(t_state, batch):
+def get_logits_and_targets(t_state, batch, model_kwargs=None):
+    if model_kwargs is None:
+        model_kwargs = {}
+
     keys = ['inputs1', 'inputs2', 'targets']
     (inputs1, inputs2, targets) = [batch.get(k, None) for k in keys]
     logits = t_state.apply_fn({'params': t_state.params}, inputs1, inputs2, train=False)
