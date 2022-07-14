@@ -146,7 +146,7 @@ def main(argv):
         checkpoint_freq=config["checkpoint_freq"],
         eval_freq=eval_freq,
         test_only=FLAGS.test_only,
-        test_on_eval=True,
+        test_on_eval=False,
         get_loss_fn_and_targets_fn=get_loss_fn_and_targets,
         get_logits_and_targets_fn=get_logits_and_targets,
     )

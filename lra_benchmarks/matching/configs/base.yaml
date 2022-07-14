@@ -1,6 +1,6 @@
 batch_size: 4
-eval_frequency: 100
-num_train_steps: 2501
+eval_frequency: 250
+num_train_steps: 1251
 num_eval_steps: -1
 learning_rate: 0.05
 weight_decay: 0.1
@@ -11,11 +11,11 @@ sampling_top_k: 20
 max_predict_token_length: 50
 save_checkpoints: True
 restore_checkpoints: True
-checkpoint_freq: 1250
+checkpoint_freq: 625
 random_seed: 0
 prompt: ""
 factors: "constant * linear_warmup * rsqrt_decay"
-warmup: 2000
+warmup: 1000
 
 tokenizer: "char"
 base_type: "dual_encoder"
