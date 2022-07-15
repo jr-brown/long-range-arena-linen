@@ -32,7 +32,7 @@ def load_configs(cfg_paths: list[str]) -> dict[str, Any]:
     cfgs = []
     for path in cfg_paths:
         with open(path, 'r') as f:
-            new_cfg = yaml.safe_load(f)
+            new_cfg = yaml.full_load(f)
             if not isinstance(new_cfg, dict):
                 raise ValueError(f"Config from path {path} did not load into a dict")
             cfgs.append(new_cfg)

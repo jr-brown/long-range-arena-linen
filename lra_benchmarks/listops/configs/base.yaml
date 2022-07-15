@@ -1,9 +1,8 @@
-batch_size: 16
+# Base config for listops
+
 eval_frequency: 100
 num_train_steps: 2501
 num_eval_steps: 99999
-learning_rate: 0.05
-weight_decay: 0.1
 max_target_length: 200  # ignored
 max_eval_target_length: 200  # ignored
 sampling_temperature: 0.6
@@ -14,11 +13,6 @@ restore_checkpoints: True
 checkpoint_freq: 1250
 random_seed: 0
 prompt: ""
-factors: "constant * linear_warmup * rsqrt_decay"
-warmup: 500
-tied_weights: False
-
-base_type: "encoder"
 
 model_kwargs:
   emb_dim: 256
@@ -28,9 +22,31 @@ model_kwargs:
   mlp_dim: 1024
   max_len: 2000
   classifier_pool: "CLS"
+  num_classes: 10
+
+data_kwargs:
+  task_name: "basic"
+  data_dir: "google_datasets/listops-1000/"
+  batch_size: 16
+
+optim_kwargs:
+  lr_schedule_kwargs:
+    base_learning_rate: 0.05
+    factors: "constant * linear_warmup * rsqrt_decay"
+    warmup_steps: 500
+
+  adam_kwargs:
+    b1: 0.9
+    b2: 0.98
+    eps: 1.0e-9
+    weight_decay: 0.1
 
 available_devices: [0,1,2,3]
-task_name: "basic"
-data_dir: "google_datasets/listops-1000/"
+task_type: "listops"
+model_base: "encoder"
+model_folder: "trained_models/listops"
+test_only: False
+test_on_eval: False
 
 trial: 0  # dummy for repeated runs.
+

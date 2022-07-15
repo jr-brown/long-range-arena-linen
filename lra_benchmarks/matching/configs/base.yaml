@@ -1,11 +1,10 @@
-batch_size: 4
+# Base config for matching
+
 eval_frequency: 250
 num_train_steps: 1251
 num_eval_steps: -1
-learning_rate: 0.05
-weight_decay: 0.1
-max_target_length: 200  # ignored
-max_eval_target_length: 200  # ignored
+max_target_length: 200
+max_eval_target_length: 200
 sampling_temperature: 0.6
 sampling_top_k: 20
 max_predict_token_length: 50
@@ -14,11 +13,6 @@ restore_checkpoints: True
 checkpoint_freq: 625
 random_seed: 0
 prompt: ""
-factors: "constant * linear_warmup * rsqrt_decay"
-warmup: 1000
-
-tokenizer: "char"
-base_type: "dual_encoder"
 
 model_kwargs:
   emb_dim: 128
@@ -28,11 +22,33 @@ model_kwargs:
   mlp_dim: 512
   max_len: 4000
   classifier_pool: "CLS"
+  num_classes: 2
 
-vocab_file_path: "google_datasets/doc_retrieval/aan/"
-task_name: "aan_pairs"
-data_dir: "google_datasets/doc_retrieval/tsv_data/"
+data_kwargs:
+  task_name: "aan_pairs"
+  data_dir: "google_datasets/doc_retrieval/tsv_data/"
+  vocab_file_path: "google_datasets/doc_retrieval/aan/"
+  tokenizer: "char"
+  batch_size: 4
+
+optim_kwargs:
+  lr_schedule_kwargs:
+    base_learning_rate: 0.05
+    factors: "constant * linear_warmup * rsqrt_decay"
+    warmup_steps: 1000
+
+  adam_kwargs:
+    b1: 0.9
+    b2: 0.98
+    eps: 1.0e-9
+    weight_decay: 0.1
+
 available_devices: [0,1,2,3]
+task_type: "matching"
+model_base: "dual_encoder"
+model_folder: "trained_models/matching"
+test_only: False
+test_on_eval: False
 
 trial: 0  # dummy for repeated runs.
 

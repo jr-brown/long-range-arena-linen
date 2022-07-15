@@ -1,11 +1,8 @@
 # Base config for text classification
 
-batch_size: 32
 eval_frequency: 100
 num_train_steps: 5001
 num_eval_steps: -1
-learning_rate: 0.05
-weight_decay: 0.1
 max_target_length: 200
 max_eval_target_length: 200
 sampling_temperature: 0.6
@@ -16,10 +13,6 @@ restore_checkpoints: True
 checkpoint_freq: 2500
 random_seed: 0
 prompt: ""
-factors: "constant * linear_warmup * rsqrt_decay"
-warmup: 2000
-
-base_type: "encoder"
 
 model_kwargs:
   emb_dim: 256
@@ -29,12 +22,32 @@ model_kwargs:
   mlp_dim: 1024
   max_len: 1000
   classifier_pool: "CLS"
+  num_classes: 2
 
-num_data_entries: null
+data_kwargs:
+  task_name: "imdb_reviews"
+  data_dir: null
+  num_data_entries: null
+  batch_size: 32
+
+optim_kwargs:
+  lr_schedule_kwargs:
+    base_learning_rate: 0.05
+    factors: "constant * linear_warmup * rsqrt_decay"
+    warmup_steps: 2000
+
+  adam_kwargs:
+    b1: 0.9
+    b2: 0.98
+    eps: 1.0e-9
+    weight_decay: 0.1
 
 available_devices: [0,1,2,3]
-task_name: "imdb_reviews"
-data_dir: null
+task_type: "text_classification"
+model_base: "encoder"
+model_folder: "trained_models/text_classification"
+test_only: False
+test_on_eval: False
 
 trial: 0  # dummy for repeated runs.
 

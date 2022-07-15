@@ -13,21 +13,15 @@
 # limitations under the License.
 """This contains utility functions for model training and evaluation."""
 from functools import partial
-from absl import logging
 import itertools
-import json
-import os
-import time
 
 import jax
 import jax.numpy as jnp
 from jax import random
 from jax.tree_util import tree_map
 
-from flax import jax_utils
 from flax import linen as nn
-from flax.metrics import tensorboard
-from flax.training import common_utils, train_state, checkpoints
+from flax.training import common_utils, train_state
 
 import tensorflow.compat.v2 as tf
 import optax
@@ -47,12 +41,11 @@ from lra_benchmarks.models.synthesizer import synthesizer
 from lra_benchmarks.models.transformer import transformer
 
 from lra_benchmarks.utils.device_utils import shard
-from lra_benchmarks.utils.misc_utils import r4
 
 from extra_models import extra_models
 
 
-def get_model(model_type, model_kwargs, init_rng, input_shapes, tx):
+def get_model(model_key, model_kwargs, init_rng, input_shapes, tx):
     """Create and initialize the model.
 
     Args:
@@ -65,40 +58,40 @@ def get_model(model_type, model_kwargs, init_rng, input_shapes, tx):
         Initialized model.
     """
 
-    if model_type == 'sparse_transformer' or model_type == 'sparse_transformer_dual':
+    if model_key == 'sparse_transformer_encoder' or model_key == 'sparse_transformer_dual_encoder':
         model_kwargs['attention_patterns'] = [
             sparse_attention.Fixed1Pattern(block_size=50),
             sparse_attention.Fixed2Pattern(block_size=50, c=10)
         ]
 
     model_map = {
-        "transformer": transformer.TransformerEncoder,
-        "transformer_dual": transformer.TransformerDualEncoder,
-        "local": local.LocalTransformerEncoder,
-        "local_dual": local.LocalTransformerDualEncoder,
-        "longformer": longformer.LongformerEncoder,
-        "longformer_dual": longformer.LongformerDualEncoder,
-        "reformer": reformer.ReformerEncoder,
-        "reformer_dual": reformer.ReformerDualEncoder,
-        "linformer": linformer.LinformerEncoder,
-        "linformer_dual": linformer.LinformerDualEncoder,
-        "sinkhorn": sinkhorn_transformer.SinkhornTransformerEncoder,
-        "sinkhorn_dual": sinkhorn_transformer.SinkhornTransformerDualEncoder,
-        "linear_transformer": linear_transformer.LinearTransformerEncoder,
-        "linear_transformer_dual": linear_transformer.LinearTransformerDualEncoder,
-        "bigbird": bigbird.BigBirdEncoder,
-        "bigbird_dual": bigbird.BigBirdDualEncoder,
-        "synthesizer": synthesizer.SynthesizerEncoder,
-        "synthesizer_dual": synthesizer.SynthesizerDualEncoder,
-        "sparse_transformer": sparse_transformer.SparseTransformerEncoder,
-        "sparse_transformer_dual": sparse_transformer.SparseTransformerDualEncoder,
-        "performer": performer.PerformerEncoder,
-        "performer_dual": performer.PerformerDualEncoder,
+        "transformer_encoder": transformer.TransformerEncoder,
+        "transformer_dual_encoder": transformer.TransformerDualEncoder,
+        "local_encoder": local.LocalTransformerEncoder,
+        "local_dual_encoder": local.LocalTransformerDualEncoder,
+        "longformer_encoder": longformer.LongformerEncoder,
+        "longformer_dual_encoder": longformer.LongformerDualEncoder,
+        "reformer_encoder": reformer.ReformerEncoder,
+        "reformer_dual_encoder": reformer.ReformerDualEncoder,
+        "linformer_encoder": linformer.LinformerEncoder,
+        "linformer_dual_encoder": linformer.LinformerDualEncoder,
+        "sinkhorn_encoder": sinkhorn_transformer.SinkhornTransformerEncoder,
+        "sinkhorn_dual_encoder": sinkhorn_transformer.SinkhornTransformerDualEncoder,
+        "linear_transformer_encoder": linear_transformer.LinearTransformerEncoder,
+        "linear_transformer_dual_encoder": linear_transformer.LinearTransformerDualEncoder,
+        "bigbird_encoder": bigbird.BigBirdEncoder,
+        "bigbird_dual_encoder": bigbird.BigBirdDualEncoder,
+        "synthesizer_encoder": synthesizer.SynthesizerEncoder,
+        "synthesizer_dual_encoder": synthesizer.SynthesizerDualEncoder,
+        "sparse_transformer_encoder": sparse_transformer.SparseTransformerEncoder,
+        "sparse_transformer_dual_encoder": sparse_transformer.SparseTransformerDualEncoder,
+        "performer_encoder": performer.PerformerEncoder,
+        "performer_dual_encoder": performer.PerformerDualEncoder,
     }
 
     model_map.update(extra_models)
 
-    return create_train_state(model_map[model_type], model_kwargs, init_rng, input_shapes, tx)
+    return create_train_state(model_map[model_key], model_kwargs, init_rng, input_shapes, tx)
 
 
 def create_train_state(flax_module, model_kwargs, init_rng, input_shapes, tx
@@ -173,15 +166,12 @@ def create_learning_rate_scheduler(
     return step_fn
 
 
-def create_optimiser(factors, base_learning_rate, warmup_steps, weight_decay):
-    lr_fn = create_learning_rate_scheduler(factors=factors,
-                                           base_learning_rate=base_learning_rate,
-                                           warmup_steps=warmup_steps)
+def create_optimiser(adam_kwargs, lr_schedule_kwargs):
+    lr_fn = create_learning_rate_scheduler(**lr_schedule_kwargs)
 
     @optax.inject_hyperparams
     def optim(learning_rate):
-        return optax.adamw(learning_rate, b1=0.9, b2=0.98, eps=1e-9,
-                           weight_decay=weight_decay)
+        return optax.adamw(learning_rate, **adam_kwargs)
 
     return optim(lr_fn)
 
@@ -325,103 +315,4 @@ def run_eval(eval_ds, t_state, p_eval_step, n_devices=None, num_eval_steps=-1):
     eval_summary['perplexity'] = jnp.clip(
             jnp.exp(eval_summary['loss']), a_max=1.0e4)
     return eval_summary
-
-
-def main_train_eval(
-        *, t_state, train_ds, eval_ds, test_ds, n_devices, gpu_devices, dropout_rngs, num_classes,
-        num_train_steps, num_eval_steps, model_dir, save_checkpoints, restore_checkpoints,
-        checkpoint_freq, eval_freq, test_only, test_on_eval=False, get_loss_fn_and_targets_fn=None,
-        get_logits_and_targets_fn=None):
-
-    start_step = 0
-    if restore_checkpoints or test_only:
-        # Restore unreplicated optimizer + model state from last checkpoint.
-        t_state = checkpoints.restore_checkpoint(model_dir, t_state)
-        # Grab last step.
-        start_step = t_state.step
-
-    # Replicate t_state onto gpu
-    t_state = jax_utils.replicate(t_state, devices=gpu_devices)
-
-    p_train_step = jax.pmap(partial(train_step, num_classes=num_classes,
-                                    get_loss_fn_and_targets_fn=get_loss_fn_and_targets_fn),
-                            axis_name='batch', devices=gpu_devices)
-    p_eval_step = jax.pmap(partial(eval_step, num_classes=num_classes,
-                                   get_logits_and_targets_fn=get_logits_and_targets_fn),
-                           axis_name='batch', devices=gpu_devices)
-    # p_pred_step = jax.pmap(predict_step, axis_name='batch', devices=gpu_devices)
-
-    if test_only:
-        with tf.io.gfile.GFile(os.path.join(model_dir, 'results.json'), 'w') as f:
-            test_summary = run_eval(test_ds, t_state, p_eval_step, n_devices=n_devices)
-            json.dump(tree_map(lambda x: x.tolist(), test_summary), f)
-        return
-
-    if jax.process_index() == 0:
-        summary_writer = tensorboard.SummaryWriter(
-                os.path.join(model_dir, 'summary'))
-
-    metrics_all = []
-    tick = time.time()
-    train_iter = iter(train_ds)
-    logging.info('Starting training')
-    logging.info('====================')
-
-    for step, batch in zip(range(start_step, num_train_steps), train_iter):
-        batch = shard(tree_map(lambda x: x._numpy(), batch), n_devices=n_devices)
-        t_state, metrics, dropout_rngs = p_train_step(t_state, batch, dropout_rngs)
-        metrics_all.append(metrics)
-        logging.info('train in step: %d', step)
-
-        # Save a Checkpoint
-        if ((step % checkpoint_freq == 0 and step > 0) or
-                step == num_train_steps - 1):
-            if jax.process_index() == 0 and save_checkpoints:
-                # Save unreplicated optimizer + model state.
-                checkpoints.save_checkpoint(model_dir, jax_utils.unreplicate(t_state), step)
-
-        # Periodic metric handling.
-        if step % eval_freq == 0 and step > 0:
-            metrics_all = common_utils.get_metrics(metrics_all)
-            lr = metrics_all.pop('learning_rate').mean()
-            metrics_sums = tree_map(jnp.sum, metrics_all)
-            denominator = metrics_sums.pop('denominator')
-            summary = tree_map(lambda x: x / denominator, metrics_sums)  # pylint: disable=cell-var-from-loop
-            summary['learning_rate'] = lr
-            # Calculate (clipped) perplexity after averaging log-perplexities:
-            summary['perplexity'] = jnp.clip(jnp.exp(summary['loss']), a_max=1.0e4)
-            logging.info(f"train in step: {step}, loss: {r4(summary['loss'])}, acc: {r4(summary['accuracy'])}")
-            if jax.process_index() == 0:
-                tock = time.time()
-                steps_per_sec = eval_freq / (tock - tick)
-                tick = tock
-                summary_writer.scalar('steps per second', steps_per_sec, step)
-                for key, val in summary.items():
-                    summary_writer.scalar(f'train_{key}', val, step)
-                summary_writer.flush()
-            # Reset metric accumulation for next evaluation cycle.
-            metrics_all = []
-
-            # Eval Metrics
-            eval_summary = run_eval(eval_ds, t_state, p_eval_step, n_devices=n_devices,
-                                                num_eval_steps=num_eval_steps)
-            logging.info('eval in step: %d, loss: %.4f, acc: %.4f', step,
-                                      eval_summary['loss'], eval_summary['accuracy'])
-            if jax.process_index() == 0:
-                for key, val in eval_summary.items():
-                    summary_writer.scalar(f'eval_{key}', val, step)
-                summary_writer.flush()
-
-            if test_on_eval:
-                # Test eval
-                # Eval Metrics
-                logging.info('Testing...')
-                test_summary = run_eval(test_ds, t_state, p_eval_step, n_devices=n_devices,
-                                        num_eval_steps=num_eval_steps)
-                logging.info('test in step: %d, loss: %.4f, acc: %.4f', step,
-                                          test_summary['loss'], test_summary['accuracy'])
-                if jax.process_index() == 0:
-                    for key, val in test_summary.items():
-                        summary_writer.scalar(f'test_{key}', val, step)
-                    summary_writer.flush()
 

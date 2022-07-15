@@ -10,7 +10,7 @@ All attention mechanisms are implemented and train well at text_classification t
 ### Implemented Tasks
 * Text classification
 * ListOps
-* Matching (Runs, needs training dynamics to be verified)
+* Matching
 
 
 ## Dependancy Installation
