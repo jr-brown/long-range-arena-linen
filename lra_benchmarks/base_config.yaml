@@ -1,0 +1,30 @@
+# Base config for all tasks
+
+max_target_length: 200
+max_eval_target_length: 200
+sampling_temperature: 0.6
+sampling_top_k: 20
+max_predict_token_length: 50
+save_checkpoints: True
+restore_checkpoints: True
+random_seed: 0
+prompt: ""
+
+optim_kwargs:
+  lr_schedule_kwargs:
+    base_learning_rate: 0.05
+    factors: "constant * linear_warmup * rsqrt_decay"
+
+  adam_kwargs:
+    b1: 0.9
+    b2: 0.98
+    eps: 1.0e-9
+    weight_decay: 0.1
+
+output_db_path: "output_db.json"
+available_devices: [0,1,2,3]
+test_only: False
+test_on_eval: False
+
+trial: 0  # dummy for repeated runs.
+

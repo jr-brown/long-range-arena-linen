@@ -3,16 +3,7 @@
 eval_frequency: 100
 num_train_steps: 5001
 num_eval_steps: -1
-max_target_length: 200
-max_eval_target_length: 200
-sampling_temperature: 0.6
-sampling_top_k: 20
-max_predict_token_length: 50
-save_checkpoints: True
-restore_checkpoints: True
 checkpoint_freq: 2500
-random_seed: 0
-prompt: ""
 
 model_kwargs:
   emb_dim: 256
@@ -32,22 +23,9 @@ data_kwargs:
 
 optim_kwargs:
   lr_schedule_kwargs:
-    base_learning_rate: 0.05
-    factors: "constant * linear_warmup * rsqrt_decay"
     warmup_steps: 2000
 
-  adam_kwargs:
-    b1: 0.9
-    b2: 0.98
-    eps: 1.0e-9
-    weight_decay: 0.1
-
-available_devices: [0,1,2,3]
 task_type: "text_classification"
 model_base: "encoder"
 model_folder: "trained_models/text_classification"
-test_only: False
-test_on_eval: False
-
-trial: 0  # dummy for repeated runs.
 

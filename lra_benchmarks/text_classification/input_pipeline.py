@@ -183,3 +183,4 @@ def get_tc_datasets(n_devices,
     test_dataset = test_dataset.padded_batch(batch_size, padded_shapes=max_shape)
 
     return train_dataset, val_dataset, test_dataset, encoder
+

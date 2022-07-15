@@ -5,6 +5,7 @@ from functools import partial
 import json
 import os
 import time
+from datetime import datetime
 
 import jax
 from jax import random
@@ -12,7 +13,6 @@ import jax.numpy as jnp
 from jax.tree_util import tree_map
 
 from flax import jax_utils
-from flax.metrics import tensorboard
 from flax.training import common_utils, checkpoints
 
 import tensorflow.compat.v2 as tf
@@ -25,6 +25,13 @@ from lra_benchmarks.utils import train_utils
 from lra_benchmarks.utils.device_utils import get_devices, shard
 from lra_benchmarks.utils.config_utils import load_configs
 from lra_benchmarks.utils.misc_utils import r4
+
+
+def get_time_stamp():
+    date = datetime.now().date().__str__()
+    time = datetime.now().time().__str__()
+    time = '-'.join(time.split(':')[:2])
+    return f"{date}_{time}"
 
 
 flags.DEFINE_list('config_paths', default=None, help="Config files, can specify many and they will overwrite with last given having highest priority")
@@ -95,9 +102,11 @@ def main(argv):
     model_folder = config["model_folder"]
     test_only = config["test_only"]
     test_on_eval = config["test_on_eval"]
+    output_db_path = config.get("output_db_path", None)
 
     model_dir = os.path.join(model_folder, model_type)
     model_key = model_type + "_" + model_base
+    model_db_name = f"{task_type}_{model_type}_{get_time_stamp()}"
 
     gpu_devices, n_devices = get_devices(available_devices)
     logging.info(f"GPU devices: {gpu_devices}")
@@ -180,9 +189,12 @@ def main(argv):
             json.dump(tree_map(lambda x: x.tolist(), test_summary), f)
         return
 
-    if jax.process_index() == 0:
-        summary_writer = tensorboard.SummaryWriter(
-                os.path.join(model_dir, 'summary'))
+    # Initialise history dict
+    history = {
+        "train": {k : [] for k in ['learning_rate', 'perplexity', 'loss', 'accuracy',
+                                   'steps_per_second']},
+        "validation": {k: [] for k in ['perplexity', 'loss', 'accuracy']}
+    }
 
     metrics_all = []
     tick = time.time()
@@ -204,6 +216,8 @@ def main(argv):
 
         # Periodic metric handling.
         if step % eval_freq == 0 and step > 0:
+
+            # Process metrics data
             metrics_all = common_utils.get_metrics(metrics_all)
             lr = metrics_all.pop('learning_rate').mean()
             metrics_sums = tree_map(jnp.sum, metrics_all)
@@ -213,14 +227,17 @@ def main(argv):
             # Calculate (clipped) perplexity after averaging log-perplexities:
             summary['perplexity'] = jnp.clip(jnp.exp(summary['loss']), a_max=1.0e4)
             logging.info(f"train in step: {step}, loss: {r4(summary['loss'])}, acc: {r4(summary['accuracy'])}")
+
+            # Load metrics into history dictionary
             if jax.process_index() == 0:
                 tock = time.time()
                 steps_per_sec = eval_freq / (tock - tick)
                 tick = tock
-                summary_writer.scalar('steps per second', steps_per_sec, step)
+
+                history["train"]["steps_per_second"].append(steps_per_sec)
                 for key, val in summary.items():
-                    summary_writer.scalar(f'train_{key}', val, step)
-                summary_writer.flush()
+                    history["train"][key].append(float(val))
+
             # Reset metric accumulation for next evaluation cycle.
             metrics_all = []
 
@@ -231,9 +248,9 @@ def main(argv):
                                       eval_summary['loss'], eval_summary['accuracy'])
             if jax.process_index() == 0:
                 for key, val in eval_summary.items():
-                    summary_writer.scalar(f'eval_{key}', val, step)
-                summary_writer.flush()
+                    history["validation"][key].append(float(val))
 
+            """
             if test_on_eval:
                 # Test eval
                 # Eval Metrics
@@ -247,6 +264,32 @@ def main(argv):
                     for key, val in test_summary.items():
                         summary_writer.scalar(f'test_{key}', val, step)
                     summary_writer.flush()
+                    """
+
+    if output_db_path is not None:
+        logging.info("Saving metrics and config data...")
+
+        try:
+            with open(output_db_path) as f:
+                output_db = json.load(f)
+        except FileNotFoundError:
+            output_db = {}
+
+        if model_db_name in output_db.keys():
+            logging.warning("")
+
+        output_db[model_db_name] = {
+            "model_dir": model_dir,
+            "config": config,
+            "history": history
+        }
+
+        with open(output_db_path, 'w', encoding="utf-8") as f:
+            try:
+                json.dump(output_db, f, ensure_ascii=False, indent=4)
+            except TypeError:
+                output_db[model_db_name] = None
+                json.dump(output_db, f, ensure_ascii=False, indent=4)
 
 
 if __name__ == "__main__":
