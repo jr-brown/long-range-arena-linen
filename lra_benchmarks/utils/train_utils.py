@@ -13,7 +13,10 @@
 # limitations under the License.
 """This contains utility functions for model training and evaluation."""
 from functools import partial
+from absl import logging
 import itertools
+
+import time
 
 import jax
 import jax.numpy as jnp
@@ -21,7 +24,8 @@ from jax import random
 from jax.tree_util import tree_map
 
 from flax import linen as nn
-from flax.training import common_utils, train_state
+from flax import jax_utils
+from flax.training import common_utils, train_state, checkpoints
 
 import tensorflow.compat.v2 as tf
 import optax
@@ -41,6 +45,7 @@ from lra_benchmarks.models.synthesizer import synthesizer
 from lra_benchmarks.models.transformer import transformer
 
 from lra_benchmarks.utils.device_utils import shard
+from lra_benchmarks.utils.misc_utils import r4
 
 from extra_models import extra_models
 
@@ -315,4 +320,79 @@ def run_eval(eval_ds, t_state, p_eval_step, n_devices=None, num_eval_steps=-1):
     eval_summary['perplexity'] = jnp.clip(
             jnp.exp(eval_summary['loss']), a_max=1.0e4)
     return eval_summary
+
+
+def train(*, start_step, num_train_steps, num_eval_steps, train_ds, eval_ds, n_devices,
+          p_train_step, p_eval_step, t_state, dropout_rngs, metrics_all, history, checkpoint_freq,
+          save_checkpoints, model_dir, eval_freq):
+
+    train_iter = iter(train_ds)
+    tick = time.time()
+
+    for step, batch in zip(range(start_step, num_train_steps), train_iter):
+        batch = shard(tree_map(lambda x: x._numpy(), batch), n_devices=n_devices)
+        t_state, metrics, dropout_rngs = p_train_step(t_state, batch, dropout_rngs)
+        metrics_all.append(metrics)
+        logging.info(f"train in step: {step}")
+
+        # Save a Checkpoint
+        if ((step % checkpoint_freq == 0 and step > 0) or
+                step == num_train_steps - 1):
+            if jax.process_index() == 0 and save_checkpoints:
+                # Save unreplicated optimizer + model state.
+                checkpoints.save_checkpoint(model_dir, jax_utils.unreplicate(t_state), step)
+
+        # Periodic metric handling.
+        if step % eval_freq == 0 and step > 0:
+
+            # Process metrics data
+            metrics_all = common_utils.get_metrics(metrics_all)
+            lr = metrics_all.pop('learning_rate').mean()
+            metrics_sums = tree_map(jnp.sum, metrics_all)
+            denominator = metrics_sums.pop('denominator')
+            summary = tree_map(lambda x: x / denominator, metrics_sums)  # pylint: disable=cell-var-from-loop
+            summary['learning_rate'] = lr
+            # Calculate (clipped) perplexity after averaging log-perplexities:
+            summary['perplexity'] = jnp.clip(jnp.exp(summary['loss']), a_max=1.0e4)
+            logging.info(f"train in step: {step}, loss: {r4(summary['loss'])}, acc: {r4(summary['accuracy'])}")
+
+            # Load metrics into history dictionary
+            if jax.process_index() == 0:
+                tock = time.time()
+                steps_per_sec = eval_freq / (tock - tick)
+                tick = tock
+
+                history["train"]["steps_per_second"].append(steps_per_sec)
+                for key, val in summary.items():
+                    history["train"][key].append(float(val))
+
+            # Reset metric accumulation for next evaluation cycle.
+            metrics_all = []
+
+            # Eval Metrics
+            eval_summary = run_eval(eval_ds, t_state, p_eval_step, n_devices=n_devices,
+                                    num_eval_steps=num_eval_steps)
+            logging.info('eval in step: %d, loss: %.4f, acc: %.4f', step,
+                                      eval_summary['loss'], eval_summary['accuracy'])
+            if jax.process_index() == 0:
+                for key, val in eval_summary.items():
+                    history["validation"][key].append(float(val))
+
+            """
+            if test_on_eval:
+                # Test eval
+                # Eval Metrics
+                logging.info('Testing...')
+                test_summary = train_utils.run_eval(test_ds, t_state, p_eval_step,
+                                                    n_devices=n_devices,
+                                        num_eval_steps=num_eval_steps)
+                logging.info('test in step: %d, loss: %.4f, acc: %.4f', step,
+                                          test_summary['loss'], test_summary['accuracy'])
+                if jax.process_index() == 0:
+                    for key, val in test_summary.items():
+                        summary_writer.scalar(f'test_{key}', val, step)
+                    summary_writer.flush()
+                    """
+
+    return t_state, dropout_rngs, metrics_all, history
 
