@@ -36,8 +36,6 @@ class GenericBlock(nn.Module):
 
         """
 
-        print(self.block_size)
-
         if attention_kwargs is None:
             attention_kwargs = {}
 
