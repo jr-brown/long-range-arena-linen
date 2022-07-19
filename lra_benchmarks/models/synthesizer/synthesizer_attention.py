@@ -178,11 +178,12 @@ class SynthesizerAttention(nn.Module):
     kernel_init: Any=nn.Dense.kernel_init
     bias_init: Any=jnn.initializers.zeros
     bias: Any=True
-    block_size: Any=20
     max_len: int=512
     ignore_dot_product: bool=True
     synthesizer_mode: str='factorized_random'
     k: int=32
+    block_size: int=50
+    layer_num: int=0
 
     @nn.compact
     def __call__(self, inputs_q, inputs_kv=None, *, segmentation=None, key_segmentation=None,

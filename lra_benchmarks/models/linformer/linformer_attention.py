@@ -39,6 +39,8 @@ class LinformerAttention(nn.Module):
     bias: Any=True
     low_rank_features: Any=16
     max_len: Any=1000
+    block_size: int=50
+    layer_num: int=0
 
     @nn.compact
     def __call__(self, inputs_q, inputs_kv=None, *, segmentation=None, key_segmentation=None,

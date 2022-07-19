@@ -24,7 +24,8 @@ from lra_benchmarks.models.generic import generic
 
 
 SparseTransformerBlock = partial(generic.GenericBlock,
-                                 attention_module=sparse_attention.SparseSelfAttention)
+                                 attention_module=sparse_attention.SparseSelfAttention,
+                                 block_size=50)
 
 
 class SparseTransformerEncoder(nn.Module):

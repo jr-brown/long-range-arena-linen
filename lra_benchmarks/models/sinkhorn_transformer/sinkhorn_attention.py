@@ -71,10 +71,11 @@ class SinkhornAttention(nn.Module):
     kernel_init: Any=nn.Dense.kernel_init
     bias_init: Any=jnn.initializers.zeros
     bias: Any=True
-    block_size: Any=20
+    block_size: int=20
     max_num_blocks: Any=25
     sort_activation: Any='softmax'
     max_len: int=512
+    layer_num: int=0
 
     def setup(self):
         self.n_blocks = ceil(self.max_len / self.block_size)

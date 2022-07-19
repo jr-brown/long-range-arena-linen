@@ -23,7 +23,8 @@ from lra_benchmarks.models.generic import generic
 
 
 SinkhornTransformerBlock = partial(generic.GenericBlock,
-                                   attention_module=sinkhorn_attention.SinkhornSelfAttention)
+                                   attention_module=sinkhorn_attention.SinkhornSelfAttention,
+                                   block_size=20)
 
 
 class SinkhornTransformerEncoder(nn.Module):
@@ -41,7 +42,6 @@ class SinkhornTransformerEncoder(nn.Module):
     max_len: int=512
     dropout_rate: float=0.1
     attention_dropout_rate: float=0.1
-    block_size: int=50
     learn_pos_emb: bool=False
     classifier: bool=False
     classifier_pool: Any='MEAN'
@@ -55,8 +55,6 @@ class SinkhornTransformerEncoder(nn.Module):
 
     @nn.compact
     def __call__(self, inputs, *, inputs_positions=None, inputs_segmentation=None, train=True):
-        block_module_kwargs={"attention_module_kwargs" : {"block_size": self.block_size}}
-
         def custom_classifier_func(encoded):
             if self.classifier_pool == 'MEAN':
                 encoded = jnp.mean(encoded, axis=1)
@@ -83,7 +81,6 @@ class SinkhornTransformerEncoder(nn.Module):
             classifier=self.classifier,
             classifier_pool=self.classifier_pool,
             num_classes=self.num_classes,
-            block_module_kwargs=block_module_kwargs,
             custom_classifier_func=custom_classifier_func,
         )(inputs, inputs_positions=inputs_positions, inputs_segmentation=inputs_segmentation,
           train=train)
@@ -92,5 +89,6 @@ class SinkhornTransformerEncoder(nn.Module):
 
 SinkhornTransformerDualEncoder = partial(generic.GenericDualEncoder,
                                          encoder_module=SinkhornTransformerEncoder)
+
 SinkhornTransformerDecoder = partial(generic.GenericDecoder, block_module=SinkhornTransformerBlock)
 

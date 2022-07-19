@@ -411,11 +411,12 @@ class BigBirdAttention(nn.Module):
     block_size: int=64
     max_len: int=512
     num_rand_blocks: int=3
-    connectivity_seed: Any=None
+    layer_num: Any=None
 
     def setup(self):
         self.n_blocks = ceil(self.max_len / self.block_size)
         self.blocks_total_len = self.n_blocks * self.block_size
+        self.connectivity_seed = self.layer_num
 
     @nn.compact
     def __call__(self, inputs_q, inputs_kv=None, *, segmentation=None, key_segmentation=None,

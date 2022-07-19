@@ -6,7 +6,7 @@ sampling_temperature: 0.6
 sampling_top_k: 20
 max_predict_token_length: 50
 save_checkpoints: True
-restore_checkpoints: True
+restore_checkpoints: False
 random_seed: 0
 prompt: ""
 

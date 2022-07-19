@@ -44,6 +44,8 @@ class PerformerBlock(nn.Module):
     max_len: int=512
     attention_fn_cls: Any=_DEFAULT_ATTENTION_FN_CLS
     attention_fn_kwargs: Any=None
+    block_size: int=50
+    layer_num: int=0
 
     @nn.compact
     def __call__(self, inputs, *, inputs_segmentation=None, causal_mask: bool=False,
@@ -68,6 +70,7 @@ class PerformerBlock(nn.Module):
             dropout_rate=self.dropout_rate,
             attention_dropout_rate=self.attention_dropout_rate,
             max_len=self.max_len,
+            block_size=self.block_size,
             attention_module_kwargs={"attention_fn": attention_fn},
         )(
             inputs,

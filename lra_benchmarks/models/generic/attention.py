@@ -18,6 +18,8 @@ class MaskedSelfAttention(nn.Module):
     broadcast_dropout: Any=True
     dropout_rate: Any=0.
     max_len: int=512
+    block_size: int=50
+    layer_num: int=0
     attention_fn: Callable[[Any, Any, Any], Any] = nn.dot_product_attention
 
     @nn.compact

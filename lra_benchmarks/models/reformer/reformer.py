@@ -19,7 +19,8 @@ from lra_benchmarks.models.generic import generic
 
 
 ReformerBlock = partial(generic.GenericBlock,
-                        attention_module=reformer_attention.ReformerSelfAttention)
+                        attention_module=reformer_attention.ReformerSelfAttention,
+                        block_size=10)
 
 ReformerEncoder = partial(generic.GenericEncoder, block_module=ReformerBlock)
 ReformerDualEncoder = partial(generic.GenericDualEncoder, encoder_module=ReformerEncoder)

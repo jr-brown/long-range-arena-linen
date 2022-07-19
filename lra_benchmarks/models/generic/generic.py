@@ -18,6 +18,8 @@ class GenericBlock(nn.Module):
     dropout_rate: float=0.1
     attention_dropout_rate: float=0.1
     max_len: int=512
+    block_size: int=50  # Used in many attention types so best to just have it always available, should be set either during specification of block by the specific attention or with config kwargs
+    layer_num: int=0  # Only used by bigbird but allows it to use generics directly
     attention_module_kwargs: Optional[dict[str, Any]]=None
 
     @nn.compact
@@ -33,6 +35,8 @@ class GenericBlock(nn.Module):
             Output after the block
 
         """
+
+        print(self.block_size)
 
         if attention_kwargs is None:
             attention_kwargs = {}
@@ -55,6 +59,8 @@ class GenericBlock(nn.Module):
                 broadcast_dropout=False,
                 dropout_rate=self.attention_dropout_rate,
                 max_len=self.max_len,
+                block_size=self.block_size,
+                layer_num=self.layer_num,
                 **attention_module_kwargs
         )(x, segmentation=inputs_segmentation, causal_mask=causal_mask, padding_mask=padding_mask,
           deterministic=deterministic, **attention_kwargs)
@@ -204,6 +210,7 @@ class GenericEncoder(nn.Module):
                         dropout_rate=self.dropout_rate,
                         attention_dropout_rate=self.attention_dropout_rate,
                         max_len=self._max_len,
+                        layer_num=lyr,
                         name=f'encoderblock_{lyr}',
                         **block_module_kwargs
                 )(x, inputs_segmentation=inputs_segmentation, padding_mask=src_padding_mask,

@@ -39,8 +39,9 @@ class LocalAttention(nn.Module):
     kernel_init: Any=nn.Dense.kernel_init
     bias_init: Any=jnn.initializers.zeros
     bias: Any=True
-    block_size: Any=20
+    block_size: int=50
     max_len: int=512
+    layer_num: int=0
 
     def setup(self):
         self.n_blocks = ceil(self.max_len / self.block_size)

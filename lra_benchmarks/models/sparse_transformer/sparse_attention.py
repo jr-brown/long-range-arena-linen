@@ -115,6 +115,8 @@ class SparseAttention(nn.Module):
     max_len: int=512
     attention_patterns: Any=None
     use_cls_token: bool=False
+    block_size: int=50
+    layer_num: int=0
 
     @nn.compact
     def __call__(self, inputs_q, inputs_kv=None, *, segmentation=None, key_segmentation=None,

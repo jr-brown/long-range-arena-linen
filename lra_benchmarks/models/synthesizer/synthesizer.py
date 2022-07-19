@@ -24,7 +24,8 @@ from lra_benchmarks.models.generic import generic
 
 
 SynthesizerBlock = partial(generic.GenericBlock,
-                           attention_module=synthesizer_attention.SynthesizerSelfAttention)
+                           attention_module=synthesizer_attention.SynthesizerSelfAttention,
+                           block_size=50)
 
 
 class SynthesizerEncoder(nn.Module):
@@ -42,7 +43,6 @@ class SynthesizerEncoder(nn.Module):
     max_len: Any=512
     dropout_rate: Any=0.1
     attention_dropout_rate: Any=0.1
-    block_size: Any=50
     learn_pos_emb: Any=False
     classifier: Any=False
     classifier_pool: Any='CLS'
@@ -64,7 +64,6 @@ class SynthesizerEncoder(nn.Module):
                 "ignore_dot_product": self.ignore_dot_product,
                 "synthesizer_mode": self.synthesizer_mode,
                 "k": self.k,
-                "block_size": self.block_size
             }
         }
 
