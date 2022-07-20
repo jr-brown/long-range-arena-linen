@@ -233,12 +233,25 @@ def main(argv):
             "history": history
         }
 
+        # Try to save the history
+        json_exception = None
         with open(output_db_path, 'w', encoding="utf-8") as f:
             try:
                 json.dump(output_db, f, ensure_ascii=False, indent=4)
-            except TypeError:
-                output_db[model_db_name] = None
+
+            # Error writing a value to the json file
+            except TypeError as e:
+                json_exception = e
+
+        # We want to clear the problematic data, record there was an error (by assigning null)
+        # and then resave the output_db so it can cleanly save and still be valid json
+        # After resaving the exception is raised as we are at end of program and want
+        # diagnostics in the logs / output
+        if json_exception is not None:
+            output_db[model_db_name] = None
+            with open(output_db_path, 'w', encoding="utf-8") as f:
                 json.dump(output_db, f, ensure_ascii=False, indent=4)
+            raise json_exception
 
 
 if __name__ == "__main__":
