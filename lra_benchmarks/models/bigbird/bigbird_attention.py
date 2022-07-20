@@ -41,7 +41,12 @@ def get_block_rand_mask(m, n, wm, wn, r, last_idx=-1):
 
     Returns:
         blocked mask of size m//wm -2 by r
+
+    NOTE: If you are getting a value error here on the onp.random.permutation lines
+    about shape incompatabilities (specifically casting (0,) into shape (x,)), then try increasing
+    sequence length or decreasing block size
     """
+
     if (m // wm) != (n // wn):
         logging.info('Error the number of blocks needs to be same')
     rand_attn = onp.zeros((m // wm - 2, r), dtype=jnp.int64)
@@ -69,6 +74,7 @@ def get_block_rand_mask(m, n, wm, wn, r, last_idx=-1):
             else:
                 rand_attn[i - 1, :] = onp.random.permutation(
                         onp.concatenate((a[:start], a[end + 1:last])))[:r]
+
     return rand_attn
 
 
