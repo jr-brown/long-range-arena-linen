@@ -68,12 +68,24 @@ def main(argv):
     if len(argv) > 1:
         raise app.UsageError('Too many command-line arguments.')
 
+    # Need to get this first to know log file name
+    config = load_configs(flags.FLAGS.config_paths)
+    model_type = config["model_type"]
+    task_type = config["task_type"]
+    run_name_suffix = config.get("run_name_suffix")
+
+    if run_name_suffix is not None:
+        run_name = f"{task_type}_{model_type}_{get_time_stamp()}_{run_name_suffix}"
+    else:
+        run_name = f"{task_type}_{model_type}_{get_time_stamp()}"
+
+    if flags.FLAGS.log_dir:
+        logging.get_absl_handler().use_absl_log_file(run_name, flags.FLAGS.log_dir)
+
     tf.get_logger().setLevel('ERROR')
     tf.enable_v2_behavior()
 
     logging.info("========== Config Paths ==========\n" + pformat(flags.FLAGS.config_paths))
-
-    config = load_configs(flags.FLAGS.config_paths)
     logging.info("========== Config Dict ===========\n" + pformat(config))
 
     model_kwargs = config["model_kwargs"]
@@ -90,12 +102,10 @@ def main(argv):
     eval_freq = config["eval_frequency"]
     random_seed = config["random_seed"]
     model_base = config["model_base"]
-    model_type = config["model_type"]
-    task_type = config["task_type"]
     save_checkpoints = config["save_checkpoints"]
     restore_checkpoints = config["restore_checkpoints"]
     checkpoint_freq = config["checkpoint_freq"]
-    available_devices = config["available_devices"]
+    available_devices = config.get("available_devices")
     model_folder = config["model_folder"]
     test_only = config["test_only"]
     test_on_eval = config["test_on_eval"]
@@ -103,7 +113,6 @@ def main(argv):
 
     model_dir = os.path.join(model_folder, model_type)
     model_key = model_type + "_" + model_base
-    model_db_name = f"{task_type}_{model_type}_{get_time_stamp()}"
 
     gpu_devices, n_devices = get_devices(available_devices)
     logging.info(f"GPU devices: {gpu_devices}")
@@ -222,12 +231,13 @@ def main(argv):
             with open(output_db_path) as f:
                 output_db = json.load(f)
         except FileNotFoundError:
+            logging.warning("Existing output db does not exist or was not found")
             output_db = {}
 
-        if model_db_name in output_db.keys():
+        if run_name in output_db.keys():
             logging.warning("")
 
-        output_db[model_db_name] = {
+        output_db[run_name] = {
             "model_dir": model_dir,
             "config": config,
             "history": history
@@ -248,7 +258,7 @@ def main(argv):
         # After resaving the exception is raised as we are at end of program and want
         # diagnostics in the logs / output
         if json_exception is not None:
-            output_db[model_db_name] = None
+            output_db[run_name] = None
             with open(output_db_path, 'w', encoding="utf-8") as f:
                 json.dump(output_db, f, ensure_ascii=False, indent=4)
             raise json_exception

@@ -22,7 +22,6 @@ optim_kwargs:
     weight_decay: 0.1
 
 output_db_path: "output_db.json"
-available_devices: [0,1,2,3]
 test_only: False
 test_on_eval: False
 

@@ -15,4 +15,5 @@ model_kwargs:
 save_checkpoints: False
 restore_checkpoints: False
 output_db_path: null
+run_name_suffix: "test"
 
