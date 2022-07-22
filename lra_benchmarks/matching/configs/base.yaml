@@ -28,5 +28,4 @@ optim_kwargs:
 
 task_type: "matching"
 model_base: "dual_encoder"
-model_folder: "trained_models/matching"
 
