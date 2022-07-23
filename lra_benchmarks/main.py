@@ -111,7 +111,7 @@ def main(argv):
     test_on_eval = config["test_on_eval"]
     output_db_path = config.get("output_db_path", None)
 
-    model_dir = os.path.join(model_folder, model_type)
+    model_dir = os.path.join(model_folder, run_name)
     model_key = model_type + "_" + model_base
 
     gpu_devices, n_devices = get_devices(available_devices)
