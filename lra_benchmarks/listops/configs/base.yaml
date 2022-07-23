@@ -26,5 +26,4 @@ optim_kwargs:
 
 task_type: "listops"
 model_base: "encoder"
-model_folder: "trained_models/listops"
 

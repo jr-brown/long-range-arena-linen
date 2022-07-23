@@ -27,5 +27,4 @@ optim_kwargs:
 
 task_type: "text_classification"
 model_base: "encoder"
-model_folder: "trained_models/text_classification"
 

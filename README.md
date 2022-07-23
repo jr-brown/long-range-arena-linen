@@ -5,7 +5,7 @@ This is a fork of google's long-range arena that aims to update it to use the la
 
 ## Status
 
-All attention mechanisms are implemented and train well at text_classification task on GPU. Some discrepancy in achieved accuracy on listops.
+All attention mechanisms are implemented and train well at the listed taks on GPU. There are some discrepancies in which models are best.
 
 ### Implemented Tasks
 * Text classification
