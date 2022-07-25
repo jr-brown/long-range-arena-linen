@@ -1,7 +1,7 @@
 # Base config for matching
 
-eval_frequency: 100
-num_train_steps: 2001
+eval_frequency: 200
+num_train_steps: 5001
 num_eval_steps: -1
 checkpoint_freq: 625
 
@@ -20,11 +20,11 @@ data_kwargs:
   data_dir: "google_datasets/doc_retrieval/tsv_data/"
   vocab_file_path: "google_datasets/doc_retrieval/aan/"
   tokenizer: "char"
-  batch_size: 4
+  batch_size: 32
 
 optim_kwargs:
   lr_schedule_kwargs:
-    warmup_steps: 1000
+    warmup_steps: 8000
 
 task_type: "matching"
 model_base: "dual_encoder"

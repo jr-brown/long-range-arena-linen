@@ -1,16 +1,16 @@
 # Base config for listops
 
-eval_frequency: 100
-num_train_steps: 2501
+eval_frequency: 200
+num_train_steps: 5001
 num_eval_steps: 99999
 checkpoint_freq: 1250
 
 model_kwargs:
-  emb_dim: 256
-  num_heads: 4
+  emb_dim: 512
+  num_heads: 8
   num_layers: 6
-  qkv_dim: 256
-  mlp_dim: 1024
+  qkv_dim: 512
+  mlp_dim: 2048
   max_len: 2000
   classifier_pool: "CLS"
   num_classes: 10
@@ -18,11 +18,11 @@ model_kwargs:
 data_kwargs:
   task_name: "basic"
   data_dir: "google_datasets/listops-1000/"
-  batch_size: 16
+  batch_size: 32
 
 optim_kwargs:
   lr_schedule_kwargs:
-    warmup_steps: 500
+    warmup_steps: 1000
 
 task_type: "listops"
 model_base: "encoder"
