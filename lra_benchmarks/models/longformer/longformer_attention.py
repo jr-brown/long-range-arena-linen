@@ -25,7 +25,6 @@ from typing import Any
 import numpy as np
 from flax import linen as nn
 
-from jax import lax
 import jax.numpy as jnp
 import jax.nn as jnn
 

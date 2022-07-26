@@ -232,8 +232,7 @@ def band_start_block_rand_multi_attention_pad(query_matrix, key_matrix, value_ma
     inner_band_product = inner_band_product / jnp.sqrt(d)
     rand_band_product = jnp.einsum(
             'BHLQD,BHLKD->BHLQK', middle_query_matrix,
-            gathered_key[:, :,
-                                      1:-1])  # [b, h, m//wm-4, wm, -1] x [b, h, m//wm-4, r*wn, -1]
+            gathered_key[:, :, 1:-1])  # [b, h, m//wm-4, wm, -1] x [b, h, m//wm-4, r*wn, -1]
     #     ==> [b, h, m//wm-4, wm, r*wn]
     rand_band_product = rand_band_product / jnp.sqrt(d)
     first_band_product = jnp.einsum(
@@ -356,21 +355,20 @@ def sparse_dot_product_attention(queries, keys, values, connectivity_seed, input
     if input_mask is None:
         input_mask = jnp.ones((batch_size, seq_length), dtype=keys.dtype)
     else:
-        input_mask = jnp.pad(
-                input_mask,
-                tuple((0, seq_length - size) if i == 1 else (0, 0)
-                            for i, size in enumerate(input_mask.shape)))
+        input_mask = jnp.pad(input_mask, tuple((0, seq_length - size) if i == 1 else (0, 0)
+                                               for i, size in enumerate(input_mask.shape)))
 
     onp.random.seed(connectivity_seed)
     # pylint: disable=g-complex-comprehension
     rand_attn = [
-            get_block_rand_mask(
-                    seq_length,
-                    seq_length,
-                    block_size,
-                    block_size,
-                    num_rand_blocks,
-                    last_idx=min(seq_length, 1024)) for _ in range(num_attention_heads)
+        get_block_rand_mask(
+            seq_length,
+            seq_length,
+            block_size,
+            block_size,
+            num_rand_blocks,
+            last_idx=min(seq_length, 1024)
+        ) for _ in range(num_attention_heads)
     ]
     # pylint: enable=g-complex-comprehension
     rand_attn = jnp.stack(rand_attn, axis=0)

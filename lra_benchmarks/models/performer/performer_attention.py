@@ -21,7 +21,6 @@ https://github.com/google-research/google-research/blob/master/performer/fast_at
 import abc
 from collections.abc import Iterable  # pylint: disable=g-importing-member
 from functools import partial
-from absl import logging
 
 import gin
 import jax

@@ -125,8 +125,7 @@ def lsh_attention_single_head(query, value, n_buckets, n_hashes, *, causal_mask=
 
     seqlen = query.shape[0]
 
-    buckets = hash_vectors(
-            query, hash_rng, num_buckets=n_buckets, num_hashes=n_hashes)
+    buckets = hash_vectors(query, hash_rng, num_buckets=n_buckets, num_hashes=n_hashes)
     # buckets should be (seq_len)
     assert buckets.shape[-1] == n_hashes * seqlen
 
@@ -137,8 +136,7 @@ def lsh_attention_single_head(query, value, n_buckets, n_hashes, *, causal_mask=
     buckets_and_t = seqlen * buckets + (ticker % seqlen)
     buckets_and_t = jax.lax.stop_gradient(buckets_and_t)
     # ticker = jnp.tile(jnp.reshape(ticker, [1, -1]), [batch_size, 1])
-    sbuckets_and_t, sticker = jax.lax.sort_key_val(
-            buckets_and_t, ticker, dimension=-1)
+    sbuckets_and_t, sticker = jax.lax.sort_key_val(buckets_and_t, ticker, dimension=-1)
     _, undo_sort = jax.lax.sort_key_val(sticker, ticker, dimension=-1)
     sbuckets_and_t = jax.lax.stop_gradient(sbuckets_and_t)
     sticker = jax.lax.stop_gradient(sticker)
@@ -205,7 +203,7 @@ class ReformerAttention(nn.Module):
     kernel_init: Any=nn.linear.default_kernel_init
     bias_init: Any=jnn.initializers.zeros
     bias: Any=True
-    block_size: int=10
+    block_size: int=10  # Originally chunk_len
     n_chunks_before: Any=1
     n_hashes: Any=1
     n_buckets=10
