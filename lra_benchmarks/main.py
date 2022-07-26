@@ -15,13 +15,11 @@ from flax.training import checkpoints
 
 import tensorflow.compat.v2 as tf
 
-from lra_benchmarks.text_classification import input_pipeline as tc_input_pipeline
-from lra_benchmarks.listops import input_pipeline as listops_input_pipeline
-from lra_benchmarks.matching import input_pipeline as matching_input_pipeline
-
 from lra_benchmarks.utils import train_utils
 from lra_benchmarks.utils.device_utils import get_devices
 from lra_benchmarks.utils.config_utils import load_configs
+from lra_benchmarks.utils.misc_utils import write_to_output_db
+from lra_benchmarks.utils.pipeline_utils import get_datasets_and_encoder, get_task_fns_and_shape
 
 
 def get_time_stamp():
@@ -31,53 +29,29 @@ def get_time_stamp():
     return f"{date}_{time}"
 
 
-flags.DEFINE_list('config_paths', default=None, help="Config files, can specify many and they will overwrite with last given having highest priority")
-
-
-def matching_task_get_loss_fn_and_targets(t_state, batch, dropout_rng, *, num_classes,
-                                          model_kwargs=None):
-    if model_kwargs is None:
-        model_kwargs = {}
-
-    train_keys = ['inputs1', 'inputs2', 'targets']
-    (inputs1, inputs2, targets) = [batch.get(k, None) for k in train_keys]
-
-    def loss_fn(params):
-        """Loss function used for training."""
-        logits = t_state.apply_fn({'params': params}, inputs1, inputs2, train=True,
-                                  rngs={'dropout': dropout_rng})
-        loss, weight_sum = train_utils.compute_weighted_cross_entropy(
-                logits, targets, num_classes=num_classes, weights=None)
-        mean_loss = loss / weight_sum
-        return mean_loss, logits
-
-    return loss_fn, targets
-
-
-def matching_task_get_logits_and_targets(t_state, batch, model_kwargs=None):
-    if model_kwargs is None:
-        model_kwargs = {}
-
-    keys = ['inputs1', 'inputs2', 'targets']
-    (inputs1, inputs2, targets) = [batch.get(k, None) for k in keys]
-    logits = t_state.apply_fn({'params': t_state.params}, inputs1, inputs2, train=False)
-    return logits, targets
+flags.DEFINE_list("config_paths", default=None, help="Config files, can specify many and they will overwrite with last given having highest priority")
+flags.DEFINE_bool("dry_run", default=False, help="Just determine configs and setup but exit before running the model")
 
 
 def main(argv):
     if len(argv) > 1:
-        raise app.UsageError('Too many command-line arguments.')
+        raise app.UsageError("Too many command-line arguments.")
+
+    if flags.FLAGS.dry_run:
+        logging.info("Executing dry run...")
 
     # Need to get this first to know log file name
     config = load_configs(flags.FLAGS.config_paths)
     model_type = config["model_type"]
     task_type = config["task_type"]
     run_name_suffix = config.get("run_name_suffix")
+    run_name = config.get("existing_run_name")
 
-    if run_name_suffix is not None:
-        run_name = f"{task_type}_{model_type}_{get_time_stamp()}_{run_name_suffix}"
-    else:
-        run_name = f"{task_type}_{model_type}_{get_time_stamp()}"
+    if run_name is None:
+        if run_name_suffix is not None:
+            run_name = f"{task_type}_{model_type}_{get_time_stamp()}_{run_name_suffix}"
+        else:
+            run_name = f"{task_type}_{model_type}_{get_time_stamp()}"
 
     if flags.FLAGS.log_dir:
         logging.get_absl_handler().use_absl_log_file(run_name, flags.FLAGS.log_dir)
@@ -117,40 +91,15 @@ def main(argv):
     gpu_devices, n_devices = get_devices(available_devices)
     logging.info(f"GPU devices: {gpu_devices}")
 
-    input_shape = (batch_size, max_len)
-
     if batch_size % n_devices > 0:
         raise ValueError('Batch size must be divisible by the number of devices')
 
-    # Use defaults in train_utils unless doing matching task
-    loss_targ_fn = None
-    logi_targ_fn = None
+    input_shapes, loss_targ_fn, logi_targ_fn = get_task_fns_and_shape(task_type, batch_size,
+                                                                      max_len)
 
-    # Default
-    input_shapes = [input_shape]
-
-    if task_type == "text_classification":
-        train_ds, eval_ds, test_ds, encoder = tc_input_pipeline.get_tc_datasets(
-            n_devices=n_devices,
-            fixed_vocab=None,
-            max_length=max_len,
-            **data_kwargs)
-    elif task_type == "listops":
-        train_ds, eval_ds, test_ds, encoder = listops_input_pipeline.get_datasets(
-            n_devices=n_devices,
-            max_length=max_len,
-            **data_kwargs)
-    elif task_type == "matching":
-        train_ds, eval_ds, test_ds, encoder = matching_input_pipeline.get_matching_datasets(
-            n_devices=n_devices,
-            fixed_vocab=None,
-            max_length=max_len,
-            **data_kwargs)
-        loss_targ_fn = matching_task_get_loss_fn_and_targets
-        logi_targ_fn = matching_task_get_logits_and_targets
-        input_shapes = [input_shape, input_shape]
-    else:
-        raise ValueError(f"Task type {task_type} is unsupported")
+    train_ds, eval_ds, test_ds, encoder = get_datasets_and_encoder(
+        task_type=task_type, n_devices=n_devices, max_len=max_len, data_kwargs=data_kwargs
+    )
 
     train_ds = train_ds.repeat()
     vocab_size = encoder.vocab_size
@@ -174,6 +123,7 @@ def main(argv):
 
     start_step = 0
     if restore_checkpoints or test_only:
+        logging.info(f"Restoring model from checkpoint at {model_dir}")
         # Restore unreplicated optimizer + model state from last checkpoint.
         t_state = checkpoints.restore_checkpoint(model_dir, t_state)
         # Grab last step.
@@ -189,8 +139,13 @@ def main(argv):
                                    get_logits_and_targets_fn=logi_targ_fn),
                            axis_name='batch', devices=gpu_devices)
 
+    if flags.FLAGS.dry_run:
+        logging.info("Dry run finished...")
+        return
+
     if test_only:
         with tf.io.gfile.GFile(os.path.join(model_dir, 'results.json'), 'w') as f:
+            logging.info("Testing...")
             test_summary = train_utils.run_eval(test_ds, t_state, p_eval_step, n_devices=n_devices)
             json.dump(tree_map(lambda x: x.tolist(), test_summary), f)
         return
@@ -225,43 +180,8 @@ def main(argv):
     )
 
     if output_db_path is not None:
-        logging.info("Saving metrics and config data...")
-
-        try:
-            with open(output_db_path) as f:
-                output_db = json.load(f)
-        except FileNotFoundError:
-            logging.warning("Existing output db does not exist or was not found")
-            output_db = {}
-
-        if run_name in output_db.keys():
-            logging.warning("")
-
-        output_db[run_name] = {
-            "model_dir": model_dir,
-            "config": config,
-            "history": history
-        }
-
-        # Try to save the history
-        json_exception = None
-        with open(output_db_path, 'w', encoding="utf-8") as f:
-            try:
-                json.dump(output_db, f, ensure_ascii=False, indent=4)
-
-            # Error writing a value to the json file
-            except TypeError as e:
-                json_exception = e
-
-        # We want to clear the problematic data, record there was an error (by assigning null)
-        # and then resave the output_db so it can cleanly save and still be valid json
-        # After resaving the exception is raised as we are at end of program and want
-        # diagnostics in the logs / output
-        if json_exception is not None:
-            output_db[run_name] = None
-            with open(output_db_path, 'w', encoding="utf-8") as f:
-                json.dump(output_db, f, ensure_ascii=False, indent=4)
-            raise json_exception
+        write_to_output_db(output_db_path=output_db_path, run_name=run_name, model_dir=model_dir,
+                           config=config, history=history)
 
 
 if __name__ == "__main__":
