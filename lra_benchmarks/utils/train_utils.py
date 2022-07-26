@@ -39,7 +39,6 @@ from lra_benchmarks.models.longformer import longformer
 from lra_benchmarks.models.performer import performer
 from lra_benchmarks.models.reformer import reformer
 from lra_benchmarks.models.sinkhorn_transformer import sinkhorn_transformer
-from lra_benchmarks.models.sparse_transformer import sparse_attention
 from lra_benchmarks.models.sparse_transformer import sparse_transformer
 from lra_benchmarks.models.synthesizer import synthesizer
 from lra_benchmarks.models.transformer import transformer
@@ -64,9 +63,9 @@ def get_model(model_key, model_kwargs, init_rng, input_shapes, tx):
     """
 
     if model_key == 'sparse_transformer_encoder' or model_key == 'sparse_transformer_dual_encoder':
-        model_kwargs['attention_patterns'] = [
-            sparse_attention.Fixed1Pattern(block_size=50),
-            sparse_attention.Fixed2Pattern(block_size=50, c=10)
+        model_kwargs['attention_pattern_args'] = [
+            ("Fixed1Pattern", {"block_size": 50}),
+            ("Fixed2Pattern", {"block_size": 50, "c": 10})
         ]
 
     model_map = {

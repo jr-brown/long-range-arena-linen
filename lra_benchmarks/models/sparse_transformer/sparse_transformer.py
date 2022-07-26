@@ -13,7 +13,6 @@
 # limitations under the License.
 """Sparse Transformer modules."""
 from functools import partial
-from absl import logging
 from typing import Any
 
 from flax import linen as nn
@@ -31,7 +30,7 @@ SparseTransformerBlock = partial(generic.GenericBlock,
 class SparseTransformerEncoder(nn.Module):
     """Local Transformer Encoder."""
 
-    attention_patterns: Any
+    attention_pattern_args: list[tuple[str, dict[str, Any]]]
     vocab_size: Any
     shared_embedding: Any=None
     use_bfloat16: Any=False
@@ -64,7 +63,7 @@ class SparseTransformerEncoder(nn.Module):
 
         block_module_kwargs = {
             "attention_module_kwargs": {
-                "attention_patterns": self.attention_patterns,
+                "attention_pattern_args": self.attention_pattern_args,
                 "use_cls_token": use_cls_token,
             }
         }
@@ -96,7 +95,7 @@ class SparseTransformerEncoder(nn.Module):
 class SparseTransformerDualEncoder(nn.Module):
     """Sparse Transformer Model for Matching (dual encoding) tasks."""
 
-    attention_patterns: Any
+    attention_pattern_args: list[tuple[str, dict[str, Any]]]
     vocab_size: Any=None
     use_bfloat16: bool=False
     emb_dim: int=512
@@ -115,7 +114,7 @@ class SparseTransformerDualEncoder(nn.Module):
     @nn.compact
     def __call__(self, inputs1, inputs2, *, inputs1_positions=None, inputs2_positions=None,
                  inputs1_segmentation=None, inputs2_segmentation=None, train: bool=False):
-        encoder_module_kwargs = {"attention_patterns": self.attention_patterns}
+        encoder_module_kwargs = {"attention_pattern_args": self.attention_pattern_args}
         encoded = generic.GenericDualEncoder(
             encoder_module=SparseTransformerEncoder,
             vocab_size=self.vocab_size,
@@ -147,7 +146,7 @@ class SparseTransformerDualEncoder(nn.Module):
 class SparseTransformerDecoder(nn.Module):
     """Sparse Transformer Decoder."""
 
-    attention_patterns: Any
+    attention_pattern_args: Any
     vocab_size: Any
     emb_dim: int=512
     num_heads: int=8
@@ -162,7 +161,7 @@ class SparseTransformerDecoder(nn.Module):
     @nn.compact
     def __call__(self, inputs, *, train: bool=False):
         block_module_kwargs = {
-            "attention_module_kwargs": {"attention_patterns": self.attention_patterns}
+            "attention_module_kwargs": {"attention_pattern_args": self.attention_pattern_args}
         }
         logits = generic.GenericDecoder(
             block_module=SparseTransformerBlock,

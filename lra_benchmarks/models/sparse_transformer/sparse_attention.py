@@ -18,7 +18,7 @@
 Note that all attention patterns are causal.
 """
 from functools import partial, reduce
-from typing import Iterable, Any
+from typing import Iterable, Any, Optional
 import attr
 
 from flax import linen as nn
@@ -61,6 +61,12 @@ class Fixed2Pattern(_Pattern):
     """Corresponds to the second of two heads in the fixed scheme."""
     block_size = attr.ib()
     c = attr.ib()
+
+
+attention_pattern_lookup = {
+    "Fixed1Pattern": Fixed1Pattern,
+    "Fixed2Pattern": Fixed2Pattern
+}
 
 
 def build_mask(seq_len: int, patterns: Iterable[_Pattern]):
@@ -113,10 +119,23 @@ class SparseAttention(nn.Module):
     bias_init: Any=jnn.initializers.zeros
     bias: Any=True
     max_len: int=512
-    attention_patterns: Any=None
+    attention_pattern_args: Optional[list[tuple[str, dict[str, Any]]]]=None
     use_cls_token: bool=False
     block_size: int=50
     layer_num: int=0
+
+    def setup(self):
+        if self.attention_pattern_args is None:
+            # This is the merged fixed attention pattern used in the paper for EnWik8.
+            self.attention_patterns = [
+                    Fixed1Pattern(block_size=128),
+                    Fixed2Pattern(block_size=128, c=32)
+            ]
+        else:
+            self.attention_patterns = [
+                attention_pattern_lookup[p_name](**p_kwargs)
+                for p_name, p_kwargs in self.attention_pattern_args
+            ]
 
     @nn.compact
     def __call__(self, inputs_q, inputs_kv=None, *, segmentation=None, key_segmentation=None,
@@ -179,13 +198,6 @@ class SparseAttention(nn.Module):
         # dimensions are then [bs, dims..., n_heads, n_features_per_head]
         qd, kd, vd = dense(name='query'), dense(name='key'), dense(name='value')
         query, key, value = qd(inputs_q), kd(inputs_kv), vd(inputs_kv)
-
-        if self.attention_patterns is None:
-            # This is the merged fixed attention pattern used in the paper for EnWik8.
-            attention_patterns = [
-                    Fixed1Pattern(block_size=128),
-                    Fixed2Pattern(block_size=128, c=32)
-            ]
 
         if self.use_cls_token:
             # don't mask cls token
