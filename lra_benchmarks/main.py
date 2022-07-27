@@ -123,7 +123,7 @@ def main(argv):
 
     start_step = 0
     if restore_checkpoints or test_only:
-        logging.info(f"Restoring model from checkpoint at {model_dir}")
+        logging.info(f"Attempting to restore model from checkpoint at {model_dir}")
         # Restore unreplicated optimizer + model state from last checkpoint.
         t_state = checkpoints.restore_checkpoint(model_dir, t_state)
         # Grab last step.
