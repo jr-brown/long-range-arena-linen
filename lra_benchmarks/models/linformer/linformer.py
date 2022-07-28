@@ -15,12 +15,9 @@
 from functools import partial
 
 from lra_benchmarks.models.linformer import linformer_attention
-from lra_benchmarks.models.generic import generic
+from lra_benchmarks.models.generic.module_collection import ModuleCollection
 
 
-LinformerBlock = partial(generic.GenericBlock,
-                         attention_module=linformer_attention.LinformerSelfAttention)
-
-LinformerEncoder = partial(generic.GenericEncoder, block_module=LinformerBlock)
-LinformerDualEncoder = partial(generic.GenericDualEncoder, encoder_module=LinformerEncoder)
+def get_modules() -> ModuleCollection:
+    return ModuleCollection(linformer_attention.LinformerSelfAttention)
 

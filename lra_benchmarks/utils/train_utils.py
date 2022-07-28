@@ -82,7 +82,6 @@ def get_model(model_type, model_base, model_kwargs, init_rng, input_shapes, tx):
         "longformer":fetch_modules(longformer, ["sliding_window_size"]),
         "reformer": fetch_modules(reformer, ["chunk_len", "n_chunks_before", "n_hashes",
                                              "n_buckets"]),
-#        "reformer_dual_encoder": reformer.ReformerDualEncoder,
 #        "linformer_encoder": linformer.LinformerEncoder,
 #        "linformer_dual_encoder": linformer.LinformerDualEncoder,
 #        "sinkhorn_encoder": sinkhorn_transformer.SinkhornTransformerEncoder,
