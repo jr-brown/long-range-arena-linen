@@ -197,7 +197,6 @@ class ReformerAttention(nn.Module):
     qkv_features: Any=None
     out_features: Any=None
     broadcast_dropout: Any=True
-    dropout_rng: Any=None
     dropout_rate: Any=0.
     precision: Any=None
     kernel_init: Any=nn.linear.default_kernel_init
@@ -208,7 +207,6 @@ class ReformerAttention(nn.Module):
     n_hashes: int=1
     n_buckets: int=10
     max_len: int=512
-    layer_num: int=0
 
     def setup(self):
         assert self.n_hashes * self.n_buckets == self.chunk_len
@@ -266,7 +264,7 @@ class ReformerAttention(nn.Module):
         orig_len = inputs_q.shape[-2]
 
         inputs_q, inputs_kv, padding_mask = pad_inputs(self.blocks_total_len, inputs_q,
-                                                       inputs_kv, padding_mask)
+                                                       inputs_kv, padding_mask=padding_mask)
 
         qkv_features = inputs_q.shape[-1]
         qlength = inputs_q.shape[1]
@@ -296,8 +294,4 @@ class ReformerAttention(nn.Module):
         out = jnp.reshape(out, [batch_size, qlength, qkv_features])
         out = out[:, :orig_len, :]
         return out
-
-class ReformerSelfAttention(ReformerAttention):
-    def __call__(self, inputs, **kwargs):
-        return super().__call__(inputs, inputs_kv=None, **kwargs)
 
