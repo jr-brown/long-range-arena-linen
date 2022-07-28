@@ -79,8 +79,7 @@ def get_model(model_type, model_base, model_kwargs, init_rng, input_shapes, tx):
     model_map = {
         "transformer": fetch_modules(transformer),
         "local": fetch_modules(local, ["block_size"]),
-#        "longformer_encoder": longformer.LongformerEncoder,
-#        "longformer_dual_encoder": longformer.LongformerDualEncoder,
+        "longformer":fetch_modules(longformer, ["sliding_window_size"]),
 #        "reformer_encoder": reformer.ReformerEncoder,
 #        "reformer_dual_encoder": reformer.ReformerDualEncoder,
 #        "linformer_encoder": linformer.LinformerEncoder,

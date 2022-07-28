@@ -20,6 +20,7 @@ import jax.numpy as jnp
 
 from lra_benchmarks.models.longformer import longformer_attention
 from lra_benchmarks.models.generic import generic
+from lra_benchmarks.models.generic.module_collection import ModuleCollection
 
 
 LongformerBlock = partial(generic.GenericBlock,
@@ -27,7 +28,7 @@ LongformerBlock = partial(generic.GenericBlock,
 
 
 class LongformerEncoder(nn.Module):
-    """Longformer Encoder."""
+    """Longformer Encoder"""
 
     vocab_size: Any
     sliding_window_size: Any=512
@@ -89,10 +90,6 @@ class LongformerEncoder(nn.Module):
         return x
 
 
-LongformerDualEncoder = partial(generic.GenericDualEncoder,
-                                encoder_module=LongformerEncoder)
-
-
 class LongformerDecoder(nn.Module):
     """Local Transformer Decoder."""
 
@@ -133,4 +130,10 @@ class LongformerDecoder(nn.Module):
             block_module_kwargs=block_module_kwargs
         )(inputs, train=train, block_kwargs=block_kwargs)
         return x
+
+def get_modules(sliding_window_size: int=512) -> ModuleCollection:
+    encoder = partial(LongformerEncoder, sliding_window_size=sliding_window_size)
+    decoder = partial(LongformerDecoder, sliding_window_size=sliding_window_size)
+    return ModuleCollection(longformer_attention.LongformerSelfAttention,
+                            block=LongformerBlock, encoder=encoder, decoder=decoder)
 

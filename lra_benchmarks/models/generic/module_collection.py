@@ -8,7 +8,7 @@ from lra_benchmarks.models.generic import generic, attention
 
 A = TypeVar('A')
 
-PossibleModule = Optional[Union[Module, partial[A], Type[A]]]
+PossibleModule = Optional[Union[Type[Module], partial[Module], Type[A], partial[A]]]
 
 
 class ModuleCollection:

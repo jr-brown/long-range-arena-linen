@@ -130,7 +130,7 @@ class LongformerAttention(nn.Module):
     precision: Any=None
     kernel_init: Any=nn.linear.default_kernel_init
     bias_init: Any=jnn.initializers.zeros
-    bias: Any=True
+    use_bias: Any=True
     max_len: int=512
     block_size: int=50
     layer_num: int=0
@@ -188,7 +188,7 @@ class LongformerAttention(nn.Module):
                 features=(self.num_heads, head_dim),
                 kernel_init=self.kernel_init,
                 bias_init=self.bias_init,
-                use_bias=self.bias,
+                use_bias=self.use_bias,
                 dtype=self.dtype,
                 precision=self.precision)
 
@@ -255,7 +255,7 @@ class LongformerAttention(nn.Module):
                 axis=(-2, -1),
                 kernel_init=self.kernel_init,
                 bias_init=self.bias_init,
-                use_bias=self.bias,
+                use_bias=self.use_bias,
                 dtype=self.dtype,
                 precision=self.precision,
                 name='out')(x)
