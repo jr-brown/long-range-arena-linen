@@ -65,6 +65,8 @@ class GenericBlock(nn.Module):
         if self.padded_length is not None:
             padded_inputs, _, padding_mask = pad_inputs(self.padded_length, inputs,
                                                         padding_mask=padding_mask)
+        else:
+            padded_inputs = inputs
 
         qkv_features = self.qkv_dim or padded_inputs.shape[-1]
 
