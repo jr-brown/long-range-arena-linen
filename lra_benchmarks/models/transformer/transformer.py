@@ -12,9 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Transformer model."""
+from functools import partial
+
 from lra_benchmarks.models.generic.module_collection import ModuleCollection
-from lra_benchmarks.models.generic import attention
+from lra_benchmarks.models.generic import generic, attention
 
 def get_modules() -> ModuleCollection:
-    return ModuleCollection(attention.GenericSelfAttention)
+    block = partial(generic.GenericBlock, attention_module=attention.MaskedDotProductAttention)
+    return ModuleCollection(block=block)
 

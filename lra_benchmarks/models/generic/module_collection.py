@@ -3,7 +3,7 @@ from functools import partial
 
 from flax.linen import Module
 
-from lra_benchmarks.models.generic import generic, attention
+from lra_benchmarks.models.generic import generic
 
 
 A = TypeVar('A')
@@ -13,19 +13,13 @@ PossibleModule = Optional[Union[Type[Module], partial[Module], Type[A], partial[
 
 class ModuleCollection:
     def __init__(self,
-                 self_attention: PossibleModule[attention.GenericSelfAttention]=None, *,
                  block: PossibleModule[generic.GenericBlock]=None,
                  encoder: PossibleModule[generic.GenericEncoder]=None,
                  dual_encoder: PossibleModule[generic.GenericDualEncoder]=None,
                  decoder: PossibleModule[generic.GenericDecoder]=None):
 
-        # Self attention always required, the others are inferred if not explicitly provided
-        self.self_attention = self_attention
-
-        if block is None:
-            self.block = partial(generic.GenericBlock, attention_module=self.self_attention)
-        else:
-            self.block = block
+        # Block is always required, the others are inferred if not explicitly provided
+        self.block = block
 
         if encoder is None:
             self.encoder = partial(generic.GenericEncoder, block_module=self.block)
@@ -45,7 +39,6 @@ class ModuleCollection:
 
     def __getitem__(self, key: str):
         module_dict = {
-            "self_attention": self.self_attention,
             "block": self.block,
             "encoder": self.encoder,
             "dual_encoder": self.dual_encoder,

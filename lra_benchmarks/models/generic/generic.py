@@ -1,11 +1,19 @@
-from typing import Any, Optional
+from typing import Any, Optional, Tuple, Callable
 
 from flax import linen as nn
+from flax.linen.linear import PrecisionLike, default_kernel_init
 
 import jax.numpy as jnp
 import jax.nn as jnn
 
 from lra_benchmarks.models.layers import common_layers
+from lra_benchmarks.utils.array_utils import pad_inputs
+
+
+PRNGKey = Any
+Shape = Tuple[int, ...]
+Dtype = Any
+Array = Any
 
 
 class GenericBlock(nn.Module):
@@ -15,11 +23,22 @@ class GenericBlock(nn.Module):
     mlp_dim: int
     num_heads: int
     dtype: Any=jnp.float32
+    param_dtype: Any=jnp.float32
     dropout_rate: float=0.1
     attention_dropout_rate: float=0.1
+    precision: PrecisionLike=None
+    kernel_init: Callable[[PRNGKey, Shape, Dtype], Array]=default_kernel_init
+    bias_init: Callable[[PRNGKey, Shape, Dtype], Array]=jnn.initializers.zeros
     max_len: int=512
     layer_num: int=0  # Only used by bigbird but allows it to use generics directly
+    padded_length_fn: Optional[Callable[[nn.Module], int]]=None
     attention_module_kwargs: Optional[dict[str, Any]]=None
+
+    def setup(self):
+        if self.padded_length_fn is not None:
+            self.padded_length = self.padded_length_fn(self)
+        else:
+            self.padded_length = None
 
     @nn.compact
     def __call__(self, inputs, *, inputs_segmentation=None, causal_mask: bool=False,
@@ -37,20 +56,63 @@ class GenericBlock(nn.Module):
         # Attention block.
         assert inputs.ndim == 3
         x = nn.LayerNorm()(inputs)
+
+
+        ### Begin what was originally in attention module
+
+        original_length = inputs.shape[1]
+
+        if self.padded_length is not None:
+            padded_inputs, _, padding_mask = pad_inputs(self.padded_length, inputs,
+                                                        padding_mask=padding_mask)
+
+        qkv_features = self.qkv_dim or padded_inputs.shape[-1]
+
+        assert qkv_features % self.num_heads == 0, (
+            'Memory dimension must be divisible by number of heads.')
+        head_dim = qkv_features // self.num_heads
+
+        # Apply attention, this step includes intial dense projection and building of masks
         x = self.attention_module(
-                num_heads=self.num_heads,
-                dtype=self.dtype,
-                qkv_features=self.qkv_dim,
-                kernel_init=jnn.initializers.xavier_uniform(),
-                bias_init=jnn.initializers.normal(stddev=1e-6),
-                use_bias=False,
-                broadcast_dropout=False,
-                dropout_rate=self.attention_dropout_rate,
-                max_len=self.max_len,
-                layer_num=self.layer_num,
-                **attention_module_kwargs
-        )(x, segmentation=inputs_segmentation, causal_mask=causal_mask, padding_mask=padding_mask,
-          deterministic=deterministic, **attention_kwargs)
+            num_heads=self.num_heads,
+            head_dim=head_dim,
+            dtype=self.dtype,
+            param_dtype=self.param_dtype,
+            broadcast_dropout=False,
+            dropout_rate=self.attention_dropout_rate,
+            precision=self.precision,
+            kernel_init=self.kernel_init,
+            bias_init=self.bias_init,
+            use_bias=False,
+            **attention_module_kwargs
+        )(
+            padded_inputs, padded_inputs,
+            causal_mask=causal_mask,
+            padding_mask=padding_mask,
+            segmentation=inputs_segmentation,
+            deterministic=deterministic,
+            **attention_kwargs
+        )
+
+        # back to the original inputs dimensions
+        x = nn.DenseGeneral(
+            features=qkv_features,
+            axis=(-2, -1),
+            kernel_init=self.kernel_init,
+            bias_init=self.bias_init,
+            use_bias=False,
+            dtype=self.dtype,
+            param_dtype=self.param_dtype,
+            precision=self.precision,
+            name='out'
+        )(x)
+
+        if self.padded_length is not None:
+            x = x[:,:original_length]
+
+        ### End attention module
+
+
         x = nn.Dropout(rate=self.dropout_rate)(x, deterministic=deterministic)
         x = x + inputs
 
@@ -181,6 +243,8 @@ class GenericEncoder(nn.Module):
                     dtype=dtype,
                     dropout_rate=self.dropout_rate,
                     attention_dropout_rate=self.attention_dropout_rate,
+                    kernel_init=jnn.initializers.xavier_uniform(),
+                    bias_init=jnn.initializers.normal(stddev=1e-6),
                     max_len=self._max_len,
                     name='encoderblock',
                     **block_module_kwargs)
@@ -196,6 +260,8 @@ class GenericEncoder(nn.Module):
                         dtype=dtype,
                         dropout_rate=self.dropout_rate,
                         attention_dropout_rate=self.attention_dropout_rate,
+                        kernel_init=jnn.initializers.xavier_uniform(),
+                        bias_init=jnn.initializers.normal(stddev=1e-6),
                         max_len=self._max_len,
                         layer_num=lyr,
                         name=f'encoderblock_{lyr}',

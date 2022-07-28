@@ -29,7 +29,7 @@ Dtype = Any
 Array = Any
 
 
-class LocalAttentionFN(nn.Module):
+class LocalAttention(nn.Module):
 
     num_heads: int
     head_dim: int
