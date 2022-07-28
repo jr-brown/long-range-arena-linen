@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Local Attention modules."""
-from math import ceil
-
 from flax import linen as nn
 import jax.numpy as jnp
 
@@ -80,8 +78,4 @@ def attention_fn(query, key, value, *,
             deterministic=deterministic)
 
     return jnp.reshape(x, (bs, qlength, num_heads, head_dim))
-
-
-def pad_length_fn(x: nn.Module, /, *, block_size: int) -> int:
-    return block_size * ceil(x.max_len / block_size)
 

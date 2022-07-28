@@ -202,17 +202,18 @@ class ReformerAttention(nn.Module):
     precision: Any=None
     kernel_init: Any=nn.linear.default_kernel_init
     bias_init: Any=jnn.initializers.zeros
-    bias: Any=True
-    block_size: int=10  # Originally chunk_len
-    n_chunks_before: Any=1
-    n_hashes: Any=1
-    n_buckets=10
+    use_bias: Any=True
+    chunk_len: int=10
+    n_chunks_before: int=1
+    n_hashes: int=1
+    n_buckets: int=10
     max_len: int=512
     layer_num: int=0
 
     def setup(self):
-        self.n_blocks = ceil(self.max_len / self.block_size)
-        self.blocks_total_len = self.n_blocks * self.block_size
+        assert self.n_hashes * self.n_buckets == self.chunk_len
+        self.n_blocks = ceil(self.max_len / self.chunk_len)
+        self.blocks_total_len = self.n_blocks * self.chunk_len
 
     @nn.compact
     def __call__(self, inputs_q, inputs_kv, *, segmentation=None, key_segmentation=None,
@@ -264,7 +265,7 @@ class ReformerAttention(nn.Module):
         assert inputs_q.ndim == 3
         orig_len = inputs_q.shape[-2]
 
-        inputs_q, inputs_kv, padding_mask = pad_inputs(orig_len, self.blocks_total_len, inputs_q,
+        inputs_q, inputs_kv, padding_mask = pad_inputs(self.blocks_total_len, inputs_q,
                                                        inputs_kv, padding_mask)
 
         qkv_features = inputs_q.shape[-1]
@@ -281,7 +282,7 @@ class ReformerAttention(nn.Module):
                         features=(self.num_heads, head_dim),
                         kernel_init=self.kernel_init,
                         bias_init=self.bias_init,
-                        use_bias=self.bias,
+                        use_bias=self.use_bias,
                         dtype=self.dtype,
                         precision=self.precision)
 

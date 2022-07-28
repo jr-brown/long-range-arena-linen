@@ -1,5 +1,6 @@
 from typing import Any, Callable, Tuple, Optional
 from functools import partial
+from math import ceil
 
 import flax.linen as nn
 from flax.linen.linear import PrecisionLike, default_kernel_init
@@ -14,6 +15,11 @@ PRNGKey = Any
 Shape = Tuple[int, ...]
 Dtype = Any
 Array = Any
+
+
+# Used by many attention mechanisms
+def pad_length_fn(x: nn.Module, /, *, block_size: int) -> int:
+    return block_size * ceil(x.max_len / block_size)
 
 
 def masked_dot_product_attention(query, key, value,
