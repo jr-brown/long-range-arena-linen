@@ -86,7 +86,6 @@ def main(argv):
     output_db_path = config.get("output_db_path", None)
 
     model_dir = os.path.join(model_folder, run_name)
-    model_key = model_type + "_" + model_base
 
     gpu_devices, n_devices = get_devices(available_devices)
     logging.info(f"GPU devices: {gpu_devices}")
@@ -119,7 +118,8 @@ def main(argv):
     dropout_rngs = random.split(rng, n_devices)
 
     tx = train_utils.create_optimiser(**optim_kwargs)
-    t_state = train_utils.get_model(model_key, model_kwargs, init_rng, input_shapes, tx)
+    t_state = train_utils.get_model(model_type, model_base, model_kwargs, init_rng, input_shapes,
+                                    tx)
 
     start_step = 0
     if restore_checkpoints or test_only:

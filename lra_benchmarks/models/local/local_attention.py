@@ -20,7 +20,8 @@ import jax.numpy as jnp
 from lra_benchmarks.utils.array_utils import make_block_attention_mask
 
 
-def attention_fn(query, key, value,
+def attention_fn(query, key, value, *,
+                 block_size,
                  causal_mask: bool=False,
                  padding_mask=None,
                  key_padding_mask=None,
@@ -31,8 +32,7 @@ def attention_fn(query, key, value,
                  broadcast_dropout: bool=True,
                  deterministic: bool=False,
                  dtype=None,
-                 precision=None,
-                 block_size=50):
+                 precision=None):
 
     # Input dimensions are [batch_size, length, num_heads, head_dim]
     assert query.ndim == 4

@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """This contains utility functions for model training and evaluation."""
+from typing import Optional
 from functools import partial
 from absl import logging
 import itertools
@@ -44,12 +45,12 @@ from lra_benchmarks.models.synthesizer import synthesizer
 from lra_benchmarks.models.transformer import transformer
 
 from lra_benchmarks.utils.device_utils import shard
-from lra_benchmarks.utils.misc_utils import r4
+from lra_benchmarks.utils.misc_utils import r4, eval_fn_with_maybe_kwargs
 
 from extra_models import extra_models
 
 
-def get_model(model_key, model_kwargs, init_rng, input_shapes, tx):
+def get_model(model_type, model_base, model_kwargs, init_rng, input_shapes, tx):
     """Create and initialize the model.
 
     Args:
@@ -62,40 +63,46 @@ def get_model(model_key, model_kwargs, init_rng, input_shapes, tx):
         Initialized model.
     """
 
-    if model_key == 'sparse_transformer_encoder' or model_key == 'sparse_transformer_dual_encoder':
+    # This allows kwargs to not be put in the config so that the get_modules uses default values
+    # Whilst also allowing the option of passing these kwargs if needed
+    def fetch_modules(python_module, possible_kwargs: Optional[list[str]]=None):
+        possible_kwargs = possible_kwargs if possible_kwargs is not None else []
+        return eval_fn_with_maybe_kwargs(python_module.get_modules, kwarg_dict=model_kwargs,
+                                         keys=possible_kwargs)
+
+    if model_type == 'sparse_transformer':
         model_kwargs['attention_pattern_args'] = [
             ("Fixed1Pattern", {"block_size": 50}),
             ("Fixed2Pattern", {"block_size": 50, "c": 10})
         ]
 
     model_map = {
-        "transformer_encoder": transformer.TransformerEncoder,
-        "transformer_dual_encoder": transformer.TransformerDualEncoder,
-        "local_encoder": local.LocalTransformerEncoder,
-        "local_dual_encoder": local.LocalTransformerDualEncoder,
-        "longformer_encoder": longformer.LongformerEncoder,
-        "longformer_dual_encoder": longformer.LongformerDualEncoder,
-        "reformer_encoder": reformer.ReformerEncoder,
-        "reformer_dual_encoder": reformer.ReformerDualEncoder,
-        "linformer_encoder": linformer.LinformerEncoder,
-        "linformer_dual_encoder": linformer.LinformerDualEncoder,
-        "sinkhorn_encoder": sinkhorn_transformer.SinkhornTransformerEncoder,
-        "sinkhorn_dual_encoder": sinkhorn_transformer.SinkhornTransformerDualEncoder,
-        "linear_transformer_encoder": linear_transformer.LinearTransformerEncoder,
-        "linear_transformer_dual_encoder": linear_transformer.LinearTransformerDualEncoder,
-        "bigbird_encoder": bigbird.BigBirdEncoder,
-        "bigbird_dual_encoder": bigbird.BigBirdDualEncoder,
-        "synthesizer_encoder": synthesizer.SynthesizerEncoder,
-        "synthesizer_dual_encoder": synthesizer.SynthesizerDualEncoder,
-        "sparse_transformer_encoder": sparse_transformer.SparseTransformerEncoder,
-        "sparse_transformer_dual_encoder": sparse_transformer.SparseTransformerDualEncoder,
-        "performer_encoder": performer.PerformerEncoder,
-        "performer_dual_encoder": performer.PerformerDualEncoder,
+        "transformer": fetch_modules(transformer),
+        "local": fetch_modules(local, ["block_size"]),
+#        "longformer_encoder": longformer.LongformerEncoder,
+#        "longformer_dual_encoder": longformer.LongformerDualEncoder,
+#        "reformer_encoder": reformer.ReformerEncoder,
+#        "reformer_dual_encoder": reformer.ReformerDualEncoder,
+#        "linformer_encoder": linformer.LinformerEncoder,
+#        "linformer_dual_encoder": linformer.LinformerDualEncoder,
+#        "sinkhorn_encoder": sinkhorn_transformer.SinkhornTransformerEncoder,
+#        "sinkhorn_dual_encoder": sinkhorn_transformer.SinkhornTransformerDualEncoder,
+#        "linear_transformer_encoder": linear_transformer.LinearTransformerEncoder,
+#        "linear_transformer_dual_encoder": linear_transformer.LinearTransformerDualEncoder,
+#        "bigbird_encoder": bigbird.BigBirdEncoder,
+#        "bigbird_dual_encoder": bigbird.BigBirdDualEncoder,
+#        "synthesizer_encoder": synthesizer.SynthesizerEncoder,
+#        "synthesizer_dual_encoder": synthesizer.SynthesizerDualEncoder,
+#        "sparse_transformer_encoder": sparse_transformer.SparseTransformerEncoder,
+#        "sparse_transformer_dual_encoder": sparse_transformer.SparseTransformerDualEncoder,
+#        "performer_encoder": performer.PerformerEncoder,
+#        "performer_dual_encoder": performer.PerformerDualEncoder,
     }
 
     model_map.update(extra_models)
+    model = model_map[model_type][model_base]
 
-    return create_train_state(model_map[model_key], model_kwargs, init_rng, input_shapes, tx)
+    return create_train_state(model, model_kwargs, init_rng, input_shapes, tx)
 
 
 def create_train_state(flax_module, model_kwargs, init_rng, input_shapes, tx
