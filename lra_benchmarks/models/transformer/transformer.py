@@ -16,9 +16,8 @@ from functools import partial
 
 from lra_benchmarks.models.generic import generic, attention
 
-TransformerBlock = partial(generic.GenericBlock,
-                           attention_module=attention.MaskedSelfAttention)
+TransformerSelfAttention = attention.GenericSelfAttention
+TransformerBlock = partial(generic.GenericBlock, attention_module=TransformerSelfAttention)
 TransformerEncoder = partial(generic.GenericEncoder, block_module=TransformerBlock)
-TransformerDualEncoder = partial(generic.GenericDualEncoder,
-                                 encoder_module=TransformerEncoder)
+TransformerDualEncoder = partial(generic.GenericDualEncoder, encoder_module=TransformerEncoder)
 

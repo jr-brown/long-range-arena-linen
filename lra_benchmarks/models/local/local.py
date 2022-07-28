@@ -15,12 +15,20 @@
 from functools import partial
 
 from lra_benchmarks.models.local import local_attention
-from lra_benchmarks.models.generic import generic
+from lra_benchmarks.models.generic import generic, attention
 
+
+BLOCK_SIZE = 50
+p_pad_length_fn = partial(local_attention.pad_length_fn, block_size=BLOCK_SIZE)
+p_attn_fn = partial(local_attention.attention_fn, block_size=BLOCK_SIZE)
+
+
+LocalSelfAttention = partial(attention.GenericSelfAttention,
+                             attention_fn=p_attn_fn,
+                             padded_length_fn=p_pad_length_fn)
 
 LocalTransformerBlock = partial(generic.GenericBlock,
-                                attention_module=local_attention.LocalSelfAttention,
-                                block_size=50)
+                                attention_module=LocalSelfAttention)
 
 LocalTransformerEncoder = partial(generic.GenericEncoder,
                                   block_module=LocalTransformerBlock)

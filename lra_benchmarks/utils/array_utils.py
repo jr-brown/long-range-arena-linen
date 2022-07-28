@@ -3,7 +3,8 @@ import jax.numpy as jnp
 from jax import lax
 
 
-def pad_inputs(orig_len, blocks_total_len, inputs_q, inputs_kv=None, padding_mask=None, val=1e-9):
+def pad_inputs(blocks_total_len, inputs_q, inputs_kv=None, padding_mask=None, val=1e-9):
+    orig_len = inputs_q.shape[1]
     # Done this way to avoid jnp.pad which doesn't work with jit
     def pad_f(x, val=0):
         new_x = jnp.full((x.shape[0], blocks_total_len, *x.shape[2:]), val, dtype=x.dtype)

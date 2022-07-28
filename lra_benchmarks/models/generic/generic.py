@@ -1,6 +1,7 @@
 from typing import Any, Optional
 
 from flax import linen as nn
+
 import jax.numpy as jnp
 import jax.nn as jnn
 
@@ -8,7 +9,6 @@ from lra_benchmarks.models.layers import common_layers
 
 
 class GenericBlock(nn.Module):
-    """Generic Layer"""
 
     attention_module: nn.Module
     qkv_dim: int
@@ -18,7 +18,6 @@ class GenericBlock(nn.Module):
     dropout_rate: float=0.1
     attention_dropout_rate: float=0.1
     max_len: int=512
-    block_size: int=50  # Used in many attention types so best to just have it always available, should be set either during specification of block by the specific attention or with config kwargs
     layer_num: int=0  # Only used by bigbird but allows it to use generics directly
     attention_module_kwargs: Optional[dict[str, Any]]=None
 
@@ -26,15 +25,6 @@ class GenericBlock(nn.Module):
     def __call__(self, inputs, *, inputs_segmentation=None, causal_mask: bool=False,
                  padding_mask=None, deterministic: bool=False,
                  attention_kwargs: Optional[dict[str, Any]]=None):
-        """Applies GenericBlock module.
-
-        Args:
-            TODO
-
-        Returns:
-            Output after the block
-
-        """
 
         if attention_kwargs is None:
             attention_kwargs = {}
@@ -53,11 +43,10 @@ class GenericBlock(nn.Module):
                 qkv_features=self.qkv_dim,
                 kernel_init=jnn.initializers.xavier_uniform(),
                 bias_init=jnn.initializers.normal(stddev=1e-6),
-                bias=False,
+                use_bias=False,
                 broadcast_dropout=False,
                 dropout_rate=self.attention_dropout_rate,
                 max_len=self.max_len,
-                block_size=self.block_size,
                 layer_num=self.layer_num,
                 **attention_module_kwargs
         )(x, segmentation=inputs_segmentation, causal_mask=causal_mask, padding_mask=padding_mask,
