@@ -12,14 +12,15 @@ PossibleModule = Optional[Union[Type[Module], partial[Module], Type[A], partial[
 
 
 class ModuleCollection:
-    def __init__(self,
-                 block: PossibleModule[generic.GenericBlock]=None,
-                 encoder: PossibleModule[generic.GenericEncoder]=None,
-                 dual_encoder: PossibleModule[generic.GenericDualEncoder]=None,
-                 decoder: PossibleModule[generic.GenericDecoder]=None):
+    def __init__(self, attention, *, block=None, encoder=None, dual_encoder=None, decoder=None):
 
         # Block is always required, the others are inferred if not explicitly provided
-        self.block = block
+        self.attention = attention
+
+        if block is None:
+            self.block = partial(generic.GenericBlock, attention_module=self.attention)
+        else:
+            self.block = block
 
         if encoder is None:
             self.encoder = partial(generic.GenericEncoder, block_module=self.block)
@@ -39,6 +40,7 @@ class ModuleCollection:
 
     def __getitem__(self, key: str):
         module_dict = {
+            "attention": self.attention,
             "block": self.block,
             "encoder": self.encoder,
             "dual_encoder": self.dual_encoder,

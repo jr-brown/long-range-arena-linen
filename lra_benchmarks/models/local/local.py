@@ -11,6 +11,5 @@ def get_modules(block_size: int=50) -> ModuleCollection:
     LocalAttention = partial(local_attention.LocalAttention, block_size=block_size)
     block = partial(generic.GenericBlock, attention_module=LocalAttention,
                     padded_length_fn=p_pad_length_fn)
-
-    return ModuleCollection(block)
+    return ModuleCollection(LocalAttention, block=block)
 

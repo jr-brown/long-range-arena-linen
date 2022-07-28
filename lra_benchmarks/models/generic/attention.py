@@ -58,11 +58,6 @@ class MaskedDotProductAttention(nn.Module):
         qd, kd, vd = dense(name='query'), dense(name='key'), dense(name='value')
         query, key, value = qd(inputs_q), kd(inputs_kv), vd(inputs_kv)
 
-        if self.dropout_rate > 0 and not deterministic:
-            dropout_rng = self.make_rng('dropout')
-        else:
-            dropout_rng = None
-
         # Input dimensions are [batch_size, length, num_heads, n_features_per_head]
         assert query.ndim == 4
         assert query.shape == key.shape == value.shape
@@ -77,6 +72,11 @@ class MaskedDotProductAttention(nn.Module):
             key_segmentation=key_segmentation,
             use_attention_bias=self.use_attention_bias
         )
+
+        if self.dropout_rate > 0 and not deterministic:
+            dropout_rng = self.make_rng('dropout')
+        else:
+            dropout_rng = None
 
         out = nn.dot_product_attention(
             query, key, value,

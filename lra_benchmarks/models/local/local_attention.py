@@ -23,6 +23,7 @@ import jax.nn as jnn
 
 from lra_benchmarks.utils.array_utils import make_block_attention_mask
 
+
 PRNGKey = Any
 Shape = Tuple[int, ...]
 Dtype = Any
@@ -33,7 +34,7 @@ class LocalAttention(nn.Module):
 
     num_heads: int
     head_dim: int
-    block_size: int
+    block_size: int=50
     dtype: Optional[Dtype]=None
     param_dtype: Dtype=jnp.float32
     broadcast_dropout: bool=True
@@ -66,11 +67,6 @@ class LocalAttention(nn.Module):
         qd, kd, vd = dense(name='query'), dense(name='key'), dense(name='value')
         query, key, value = qd(inputs_q), kd(inputs_kv), vd(inputs_kv)
 
-        if self.dropout_rate > 0 and not deterministic:
-            dropout_rng = self.make_rng('dropout')
-        else:
-            dropout_rng = None
-
         # Input dimensions are [batch_size, length, num_heads, head_dim]
         assert query.ndim == 4
         assert query.shape == key.shape == value.shape
@@ -78,23 +74,24 @@ class LocalAttention(nn.Module):
         bs = query.shape[0]
         qlength = query.shape[1]
         kvlength = key.shape[1]
-        num_heads = query.shape[2]
-        head_dim = query.shape[3]
 
         # block reshape before attention
         num_q_blocks = qlength // self.block_size
         num_kv_blocks = kvlength // self.block_size
 
-        block_query = jnp.reshape(query, (bs, num_q_blocks, self.block_size, num_heads, head_dim))
-        block_key = jnp.reshape(key, (bs, num_kv_blocks, self.block_size, num_heads, head_dim))
-        block_value = jnp.reshape(value, (bs, num_kv_blocks, self.block_size, num_heads, head_dim))
+        block_query = jnp.reshape(query, (bs, num_q_blocks, self.block_size, self.num_heads,
+                                          self.head_dim))
+        block_key = jnp.reshape(key, (bs, num_kv_blocks, self.block_size, self.num_heads,
+                                      self.head_dim))
+        block_value = jnp.reshape(value, (bs, num_kv_blocks, self.block_size, self.num_heads,
+                                          self.head_dim))
 
         _, attention_bias = make_block_attention_mask(
             seq_shape=key[:-2],
             bs=bs,
             num_query_blocks=num_q_blocks,
             block_size=self.block_size,
-            num_heads=num_heads,
+            num_heads=self.num_heads,
             dtype=self.dtype,
             causal_mask=causal_mask,
             padding_mask=padding_mask,
@@ -103,6 +100,11 @@ class LocalAttention(nn.Module):
             key_segmentation=key_segmentation,
             use_attention_bias=True,
         )
+
+        if self.dropout_rate > 0 and not deterministic:
+            dropout_rng = self.make_rng('dropout')
+        else:
+            dropout_rng = None
 
         x = nn.dot_product_attention(
                 block_query,
@@ -116,5 +118,5 @@ class LocalAttention(nn.Module):
                 broadcast_dropout=self.broadcast_dropout,
                 deterministic=deterministic)
 
-        return jnp.reshape(x, (bs, qlength, num_heads, head_dim))
+        return jnp.reshape(x, (bs, qlength, self.num_heads, self.head_dim))
 

@@ -20,16 +20,22 @@ supported, however.
 """
 
 from functools import partial
-from typing import Any
-
+from typing import Any, Tuple, Optional, Callable
 import numpy as np
+
 from flax import linen as nn
+from flax.linen.linear import PrecisionLike, default_kernel_init
 
 import jax.numpy as jnp
 import jax.nn as jnn
 
 from lra_benchmarks.utils.array_utils import make_attention_mask
 
+
+PRNGKey = Any
+Shape = Tuple[int, ...]
+Dtype = Any
+Array = Any
 
 
 def _build_global_mask(mask):
@@ -119,24 +125,21 @@ def _get_attention_result(query,
 class LongformerAttention(nn.Module):
     """Module implementing Longformer attention."""
 
-    num_heads: Any
+    num_heads: int
+    head_dim: int
     sliding_window_size: Any=512
-    dtype: Any=jnp.float32
-    qkv_features: Any=None
-    out_features: Any=None
-    broadcast_dropout: Any=True
-    dropout_rng: Any=None
-    dropout_rate: Any=0.
-    precision: Any=None
-    kernel_init: Any=nn.linear.default_kernel_init
-    bias_init: Any=jnn.initializers.zeros
-    use_bias: Any=True
-    max_len: int=512
-    block_size: int=50
-    layer_num: int=0
+    dtype: Optional[Dtype]=None
+    param_dtype: Dtype=jnp.float32
+    broadcast_dropout: bool=True
+    dropout_rate: float=0
+    precision: PrecisionLike=None
+    kernel_init: Callable[[PRNGKey, Shape, Dtype], Array]=default_kernel_init
+    bias_init: Callable[[PRNGKey, Shape, Dtype], Array]=jnn.initializers.zeros
+    use_bias: bool=True
+    use_attention_bias: bool=False
 
     @nn.compact
-    def __call__(self, inputs_q, inputs_kv=None, *, segmentation=None, key_segmentation=None,
+    def __call__(self, inputs_q, inputs_kv, *, segmentation=None, key_segmentation=None,
                  global_mask=None, causal_mask: bool=False, padding_mask=None,
                  key_padding_mask=None, deterministic: bool=False):
         """Applies longformer multi-head dot product attention on the input data.
@@ -171,26 +174,20 @@ class LongformerAttention(nn.Module):
         Returns:
             output of shape `[bs, seq_len, features]`.
         """
-        if inputs_kv is None:
-            inputs_kv = inputs_q
 
-        batch_size = inputs_q.shape[0]
-        features = self.out_features or inputs_q.shape[-1]
-        qkv_features = self.qkv_features or inputs_q.shape[-1]
+        bs = inputs_q.shape[0]
         seq_len = inputs_q.shape[1]
 
-        assert qkv_features % self.num_heads == 0, (
-                'Memory dimension must be divisible by number of heads.')
-        head_dim = qkv_features // self.num_heads
-
-        dense = partial(nn.DenseGeneral,
-                axis=-1,
-                features=(self.num_heads, head_dim),
-                kernel_init=self.kernel_init,
-                bias_init=self.bias_init,
-                use_bias=self.use_bias,
-                dtype=self.dtype,
-                precision=self.precision)
+        dense = partial(
+            nn.DenseGeneral,
+            axis=-1,
+            features=(self.num_heads, self.head_dim),
+            kernel_init=self.kernel_init,
+            bias_init=self.bias_init,
+            use_bias=self.use_bias,
+            dtype=self.dtype,
+            precision=self.precision
+        )
 
         query_sw = dense(name='query_sliding_window')(inputs_q)
         key_sw = dense(name='key_sliding_window')(inputs_kv)
@@ -201,68 +198,54 @@ class LongformerAttention(nn.Module):
         value_global = dense(name='value_global')(inputs_kv)
 
         if global_mask is None:
-            global_mask = jnp.full((batch_size, seq_len), False)
+            global_mask = jnp.full((bs, seq_len), False)
 
         full_global_mask = _build_global_mask(global_mask)
 
         sliding_window_mask = _build_sliding_window_mask(
                 window_size=self.sliding_window_size, global_mask=global_mask)
 
-        if self.dropout_rng is None and not deterministic:
+        if self.dropout_rate > 0 and not deterministic:
             dropout_rng = self.make_rng('dropout')
         else:
-            dropout_rng = self.dropout_rng
+            dropout_rng = None
 
         x_sw = _get_attention_result(
-                query=query_sw,
-                key=key_sw,
-                value=value_sw,
-                dtype=self.dtype,
-                precision=self.precision,
-                dropout_rng=dropout_rng,
-                dropout_rate=self.dropout_rate,
-                broadcast_dropout=self.broadcast_dropout,
-                deterministic=deterministic,
-                mask=sliding_window_mask,
-                padding_mask=padding_mask,
-                key_padding_mask=key_padding_mask,
-                segmentation=segmentation,
-                key_segmentation=key_segmentation,
-                apply_causal_mask=causal_mask)
+            query=query_sw,
+            key=key_sw,
+            value=value_sw,
+            dtype=self.dtype,
+            precision=self.precision,
+            dropout_rng=dropout_rng,
+            dropout_rate=self.dropout_rate,
+            broadcast_dropout=self.broadcast_dropout,
+            deterministic=deterministic,
+            mask=sliding_window_mask,
+            padding_mask=padding_mask,
+            key_padding_mask=key_padding_mask,
+            segmentation=segmentation,
+            key_segmentation=key_segmentation,
+            apply_causal_mask=causal_mask
+        )
 
         x_global = _get_attention_result(
-                query=query_global,
-                key=key_global,
-                value=value_global,
-                dtype=self.dtype,
-                precision=self.precision,
-                dropout_rng=dropout_rng,
-                dropout_rate=self.dropout_rate,
-                broadcast_dropout=self.broadcast_dropout,
-                deterministic=deterministic,
-                mask=full_global_mask,
-                padding_mask=padding_mask,
-                key_padding_mask=key_padding_mask,
-                segmentation=segmentation,
-                key_segmentation=key_segmentation,
-                apply_causal_mask=causal_mask)
+            query=query_global,
+            key=key_global,
+            value=value_global,
+            dtype=self.dtype,
+            precision=self.precision,
+            dropout_rng=dropout_rng,
+            dropout_rate=self.dropout_rate,
+            broadcast_dropout=self.broadcast_dropout,
+            deterministic=deterministic,
+            mask=full_global_mask,
+            padding_mask=padding_mask,
+            key_padding_mask=key_padding_mask,
+            segmentation=segmentation,
+            key_segmentation=key_segmentation,
+            apply_causal_mask=causal_mask
+        )
 
-        x = jnp.where(global_mask[:, :, jnp.newaxis, jnp.newaxis], x_global, x_sw)
+        return jnp.where(global_mask[:, :, jnp.newaxis, jnp.newaxis], x_global, x_sw)
 
-        # back to the original inputs dimensions
-        out = nn.DenseGeneral(
-                features=features,
-                axis=(-2, -1),
-                kernel_init=self.kernel_init,
-                bias_init=self.bias_init,
-                use_bias=self.use_bias,
-                dtype=self.dtype,
-                precision=self.precision,
-                name='out')(x)
-
-        return out
-
-class LongformerSelfAttention(LongformerAttention):
-    def __call__(self, inputs, **kwargs):
-        return super().__call__(inputs, inputs_kv=None, **kwargs)
 
