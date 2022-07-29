@@ -401,6 +401,7 @@ def sparse_dot_product_attention(queries, keys, values, connectivity_seed, input
 class BigBirdAttention(nn.Module):
     """Multi-head dot-product attention."""
 
+    block_size: int
     num_heads: int
     dtype: Any=jnp.float32
     qkv_features: Any=None
@@ -412,7 +413,6 @@ class BigBirdAttention(nn.Module):
     kernel_init: Any=nn.Dense.kernel_init
     bias_init: Any=jnn.initializers.zeros
     bias: bool=True
-    block_size: int=64
     max_len: int=512
     num_rand_blocks: int=3
     layer_num: Any=None

@@ -192,7 +192,11 @@ def lsh_attention_single_head(query, value, n_buckets, n_hashes, *, causal_mask=
 class ReformerAttention(nn.Module):
     """Multi-head Reformer Architecture."""
 
-    num_heads: Any
+    chunk_len: int
+    n_chunks_before: int
+    n_hashes: int
+    n_buckets: int
+    num_heads: int
     dtype: Any=jnp.float32
     qkv_features: Any=None
     out_features: Any=None
@@ -203,16 +207,12 @@ class ReformerAttention(nn.Module):
     kernel_init: Any=nn.linear.default_kernel_init
     bias_init: Any=jnn.initializers.zeros
     bias: Any=True
-    block_size: int=10  # Originally chunk_len
-    n_chunks_before: Any=1
-    n_hashes: Any=1
-    n_buckets=10
     max_len: int=512
     layer_num: int=0
 
     def setup(self):
-        self.n_blocks = ceil(self.max_len / self.block_size)
-        self.blocks_total_len = self.n_blocks * self.block_size
+        self.n_chunks_total = ceil(self.max_len / self.chunk_len)
+        self.chunks_total_len = self.n_chunks_total * self.chunk_len
 
     @nn.compact
     def __call__(self, inputs_q, inputs_kv, *, segmentation=None, key_segmentation=None,
@@ -261,10 +261,11 @@ class ReformerAttention(nn.Module):
             output of shape `[bs, dim1, dim2, ..., dimN, features]`.
         """
 
+        assert self.n_hashes * self.n_buckets == self.chunk_len
         assert inputs_q.ndim == 3
         orig_len = inputs_q.shape[-2]
 
-        inputs_q, inputs_kv, padding_mask = pad_inputs(orig_len, self.blocks_total_len, inputs_q,
+        inputs_q, inputs_kv, padding_mask = pad_inputs(orig_len, self.chunks_total_len, inputs_q,
                                                        inputs_kv, padding_mask)
 
         qkv_features = inputs_q.shape[-1]

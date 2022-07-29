@@ -1,8 +1,15 @@
+from typing import Callable, Any
 from copy import deepcopy
 import json
 from absl import logging
 
 from flax.core import FrozenDict
+
+
+def eval_fn_with_maybe_kwargs(fn: Callable, *args, kwarg_dict: dict[str, Any], keys: list[str],
+                              **kwargs):
+    fn_kwargs = {k: kwarg_dict[k] for k in keys if k in kwarg_dict.keys()}
+    return fn(*args, **fn_kwargs, **kwargs)
 
 
 def is_dict(x):

@@ -167,6 +167,9 @@ def _invert_perm(perm):
 class SynthesizerAttention(nn.Module):
     """Multi-head Synthesizer Architecture."""
 
+    ignore_dot_product: bool
+    synthesizer_mode: str
+    k: int
     num_heads: Any
     dtype: Any=jnp.float32
     qkv_features: Any=None
@@ -179,10 +182,6 @@ class SynthesizerAttention(nn.Module):
     bias_init: Any=jnn.initializers.zeros
     bias: Any=True
     max_len: int=512
-    ignore_dot_product: bool=True
-    synthesizer_mode: str='factorized_random'
-    k: int=32
-    block_size: int=50
     layer_num: int=0
 
     @nn.compact

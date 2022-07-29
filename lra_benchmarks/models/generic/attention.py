@@ -20,7 +20,7 @@ class MaskedSelfAttention(nn.Module):
     max_len: int=512
     block_size: int=50
     layer_num: int=0
-    attention_fn: Callable[[Any, Any, Any], Any] = nn.dot_product_attention
+    attention_fn: Callable[[Any, Any, Any], Any]=nn.dot_product_attention
 
     @nn.compact
     def __call__(self, x, *, segmentation=None, causal_mask: bool=False, padding_mask=None,

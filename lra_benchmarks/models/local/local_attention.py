@@ -28,6 +28,7 @@ from lra_benchmarks.utils.array_utils import make_block_attention_mask, pad_inpu
 class LocalAttention(nn.Module):
     """Multi-head Local Attention Architecture."""
 
+    block_size: int
     num_heads: Any
     dtype: Any=jnp.float32
     qkv_features: Any=None
@@ -39,7 +40,6 @@ class LocalAttention(nn.Module):
     kernel_init: Any=nn.Dense.kernel_init
     bias_init: Any=jnn.initializers.zeros
     bias: Any=True
-    block_size: int=50
     max_len: int=512
     layer_num: int=0
 

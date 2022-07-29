@@ -39,7 +39,6 @@ class LinformerAttention(nn.Module):
     bias: Any=True
     low_rank_features: Any=16
     max_len: Any=1000
-    block_size: int=50
     layer_num: int=0
 
     @nn.compact

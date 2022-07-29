@@ -60,6 +60,9 @@ def sinkhorn_operator(log_alpha, n_iters=1, temp=1.0, clip=1.0, causal=True):
 class SinkhornAttention(nn.Module):
     """Multi-head Sinkhorn Attention Architecture."""
 
+    block_size: int
+    max_num_blocks: int
+    sort_activation: str
     num_heads: Any
     dtype: Any=jnp.float32
     qkv_features: Any=None
@@ -71,9 +74,6 @@ class SinkhornAttention(nn.Module):
     kernel_init: Any=nn.Dense.kernel_init
     bias_init: Any=jnn.initializers.zeros
     bias: Any=True
-    block_size: int=20
-    max_num_blocks: Any=25
-    sort_activation: Any='softmax'
     max_len: int=512
     layer_num: int=0
 

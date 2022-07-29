@@ -108,6 +108,7 @@ class SparseAttention(nn.Module):
     """Module implementing Sparse Transformer's attention."""
 
     num_heads: Any
+    attention_pattern_args: Optional[list[tuple[str, dict[str, Any]]]]=None
     dtype: Any=jnp.float32
     qkv_features: Any=None
     out_features: Any=None
@@ -119,10 +120,8 @@ class SparseAttention(nn.Module):
     bias_init: Any=jnn.initializers.zeros
     bias: Any=True
     max_len: int=512
-    attention_pattern_args: Optional[list[tuple[str, dict[str, Any]]]]=None
-    use_cls_token: bool=False
-    block_size: int=50
     layer_num: int=0
+    use_cls_token: bool=False
 
     def setup(self):
         if self.attention_pattern_args is None:

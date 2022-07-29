@@ -88,7 +88,6 @@ class LinearAttention(nn.Module):
     bias_init: Any=jnn.initializers.zeros
     bias: Any=True
     max_len: int=512
-    block_size: int=50
     layer_num: int=0
 
     @nn.compact
