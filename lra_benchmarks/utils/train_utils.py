@@ -70,12 +70,6 @@ def get_model(model_type, model_base, model_kwargs, init_rng, input_shapes, tx):
         return eval_fn_with_maybe_kwargs(get_modules_fn, kwarg_dict=model_kwargs,
                                          keys=possible_kwargs)
 
-    if model_type == 'sparse_transformer':
-        model_kwargs['attention_pattern_args'] = [
-            ("Fixed1Pattern", {"block_size": 50}),
-            ("Fixed2Pattern", {"block_size": 50, "c": 10})
-        ]
-
     model_map = {
         "transformer": (transformer.get_modules, []),
         "local": (local.get_modules, ["block_size"]),

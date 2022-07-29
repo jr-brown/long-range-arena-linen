@@ -25,6 +25,12 @@ from lra_benchmarks.models.generic.module_collection import ModuleCollection
 
 def get_modules(attention_pattern_args: Optional[list[tuple[str, dict[str, Any]]]]=None
                 ) -> ModuleCollection:
+
+    # This was originally in train_utils
+    if attention_pattern_args is None:
+        attention_pattern_args = [("Fixed1Pattern", {"block_size": 50}),
+                                  ("Fixed2Pattern", {"block_size": 50, "c": 10})]
+
     attn = partial(SparseSelfAttention, attention_pattern_args=attention_pattern_args)
     block = partial(generic.GenericBlock, attention_module=attn)
 
