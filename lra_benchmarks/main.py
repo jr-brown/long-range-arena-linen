@@ -82,7 +82,6 @@ def main(argv):
     available_devices = config.get("available_devices")
     model_folder = config["model_folder"]
     test_only = config["test_only"]
-    test_on_eval = config["test_on_eval"]
     output_db_path = config.get("output_db_path", None)
 
     model_dir = os.path.join(model_folder, run_name)
