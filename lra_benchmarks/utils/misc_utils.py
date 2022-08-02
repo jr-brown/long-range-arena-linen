@@ -30,7 +30,9 @@ def recursive_dict_update(base: dict, target: dict, assert_type_match=True,
         if (k not in base.keys()):
             new[k] = v
         elif is_dict(v) and is_dict(base[k]):
-            new[k] = recursive_dict_update(base[k], v)
+            new[k] = recursive_dict_update(base[k], v, assert_type_match=assert_type_match,
+                                           type_match_ignore_nones=type_match_ignore_nones,
+                                           extend_lists=extend_lists)
         elif isinstance(v, list) and isinstance(base[k], list) and extend_lists:
             new[k] += v
         else:
