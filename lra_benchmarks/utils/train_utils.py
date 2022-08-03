@@ -364,13 +364,6 @@ def train(*, start_step, num_train_steps, num_eval_steps, train_ds, eval_ds, n_d
                 for key, val in summary.items():
                     history["train"][key].append(float(val))
 
-            # Check if model is new best and if so save it
-            if last_best_val_acc is None or (summary["accuracy"] > last_best_val_acc):
-                last_best_val_acc = summary["accuracy"]
-                if jax.process_index() == 0 and save_best:
-                    checkpoints.save_checkpoint(model_dir+"_best", jax_utils.unreplicate(t_state),
-                                                step)
-
             # Reset metric accumulation for next evaluation cycle.
             metrics_all = []
 
@@ -382,6 +375,13 @@ loss: {eval_summary['loss']:4f}, acc: {eval_summary['accuracy']:4f}")
             if jax.process_index() == 0:
                 for key, val in eval_summary.items():
                     history["validation"][key].append(float(val))
+
+            # Check if model is new best and if so save it
+            if last_best_val_acc is None or (eval_summary["accuracy"] > last_best_val_acc):
+                last_best_val_acc = eval_summary["accuracy"]
+                if jax.process_index() == 0 and save_best:
+                    checkpoints.save_checkpoint(model_dir+"_best", jax_utils.unreplicate(t_state),
+                                                step)
 
             """
             if test_on_eval:
