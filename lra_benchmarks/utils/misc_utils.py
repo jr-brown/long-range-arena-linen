@@ -6,6 +6,43 @@ from absl import logging
 from flax.core import FrozenDict
 
 
+def txt_str_to_md(string, bullet_consecutive_lines=False):
+
+    # Make things titles based on newlines
+    string = '\n\n\n## '.join(string.split('\n\n\n'))
+
+    # If applicable, make lists out of consective, non-empty lines
+    if bullet_consecutive_lines:
+        s_split = string.split('\n')
+        new_string = [s_split[0], s_split[1]]
+
+        # We want to bullet when the previous line is not empty and neither is the current
+        # If we're at the top of the bullets we need to insert a newline
+        for l1, l2, l3 in zip(s_split, s_split[1:], s_split[2:]):
+            if l2 != '' and l3 != '':
+                if l1 == '':
+                    new_string.append("\n* " + l3)
+                else:
+                    new_string.append("* " + l3)
+            else:
+                new_string.append(l3)
+
+        string = '\n'.join(new_string)
+
+    # Insert header and make first line title
+    string = "---\ngeometry: margin=2.5cm\n---\n\n# " + string
+
+    return string
+
+
+def ensure_suffix(txt: str, suffix: str) -> str:
+    return txt if txt[-len(suffix):] == suffix else txt + suffix
+
+
+def ensure_prefix(prefix: str, txt: str) -> str:
+    return txt if txt[:len(prefix)] == prefix else prefix + txt
+
+
 def eval_fn_with_maybe_kwargs(fn: Callable, *args, kwarg_dict: dict[str, Any], keys: list[str],
                               **kwargs):
     fn_kwargs = {k: kwarg_dict[k] for k in keys if k in kwarg_dict.keys()}
@@ -39,10 +76,6 @@ def recursive_dict_update(base: dict, target: dict, assert_type_match=True,
             new[k] = v
 
     return new
-
-
-def r4(x):
-    return round(x, 4)
 
 
 def write_to_output_db(output_db_path, run_name, model_dir, config, history):

@@ -45,7 +45,7 @@ from lra_benchmarks.models.synthesizer import synthesizer
 from lra_benchmarks.models.transformer import transformer
 
 from lra_benchmarks.utils.device_utils import shard
-from lra_benchmarks.utils.misc_utils import r4, eval_fn_with_maybe_kwargs
+from lra_benchmarks.utils.misc_utils import eval_fn_with_maybe_kwargs
 
 from extra_models import extra_models
 
@@ -350,7 +350,7 @@ def train(*, start_step, num_train_steps, num_eval_steps, train_ds, eval_ds, n_d
             summary['learning_rate'] = lr
             # Calculate (clipped) perplexity after averaging log-perplexities:
             summary['perplexity'] = jnp.clip(jnp.exp(summary['loss']), a_max=1.0e4)
-            logging.info(f"train in step: {step}, loss: {r4(summary['loss'])}, acc: {r4(summary['accuracy'])}")
+            logging.info(f"train in step: {step}, loss: {summary['loss']:4f}, acc: {summary['accuracy']:4f}")
 
             # Load metrics into history dictionary
             if jax.process_index() == 0:
@@ -368,8 +368,8 @@ def train(*, start_step, num_train_steps, num_eval_steps, train_ds, eval_ds, n_d
             # Eval Metrics
             eval_summary = run_eval(eval_ds, t_state, p_eval_step, n_devices=n_devices,
                                     num_eval_steps=num_eval_steps)
-            logging.info('eval in step: %d, loss: %.4f, acc: %.4f', step,
-                                      eval_summary['loss'], eval_summary['accuracy'])
+            logging.info(f"eval in step: {step:4f}, \
+loss: {eval_summary['loss']:4f}, acc: {eval_summary['accuracy']:4f}")
             if jax.process_index() == 0:
                 for key, val in eval_summary.items():
                     history["validation"][key].append(float(val))
