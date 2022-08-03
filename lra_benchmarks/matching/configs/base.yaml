@@ -1,9 +1,9 @@
 # Base config for matching
 
 eval_frequency: 200
-num_train_steps: 5001
+num_train_steps: 10001
 num_eval_steps: -1
-checkpoint_freq: 625
+checkpoint_freq: 2000
 
 model_kwargs:
   emb_dim: 128
