@@ -79,6 +79,7 @@ def main(argv):
     save_checkpoints = config["save_checkpoints"]
     restore_checkpoints = config["restore_checkpoints"]
     checkpoint_freq = config["checkpoint_freq"]
+    save_best = config["save_best"]
     available_devices = config.get("available_devices")
     model_folder = config["model_folder"]
     test_only = config["test_only"]
@@ -175,7 +176,8 @@ def main(argv):
         checkpoint_freq=checkpoint_freq,
         save_checkpoints=save_checkpoints,
         model_dir=model_dir,
-        eval_freq=eval_freq
+        eval_freq=eval_freq,
+        save_best=save_best,
     )
 
     if output_db_path is not None:

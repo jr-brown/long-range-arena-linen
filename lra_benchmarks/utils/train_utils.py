@@ -320,10 +320,12 @@ def run_eval(eval_ds, t_state, p_eval_step, n_devices=None, num_eval_steps=-1):
 
 def train(*, start_step, num_train_steps, num_eval_steps, train_ds, eval_ds, n_devices,
           p_train_step, p_eval_step, t_state, dropout_rngs, metrics_all, history, checkpoint_freq,
-          save_checkpoints, model_dir, eval_freq):
+          save_checkpoints, model_dir, eval_freq, save_best):
 
     train_iter = iter(train_ds)
     tick = time.time()
+
+    last_best_val_acc = None
 
     for step, batch in zip(range(start_step, num_train_steps), train_iter):
         batch = shard(tree_map(lambda x: x._numpy(), batch), n_devices=n_devices)
@@ -331,7 +333,7 @@ def train(*, start_step, num_train_steps, num_eval_steps, train_ds, eval_ds, n_d
         metrics_all.append(metrics)
         logging.info(f"train in step: {step}")
 
-        # Save a Checkpoint
+        # Save a train checkpoint
         if ((step % checkpoint_freq == 0 and step > 0) or
                 step == num_train_steps - 1):
             if jax.process_index() == 0 and save_checkpoints:
@@ -361,6 +363,13 @@ def train(*, start_step, num_train_steps, num_eval_steps, train_ds, eval_ds, n_d
                 history["train"]["steps_per_second"].append(steps_per_sec)
                 for key, val in summary.items():
                     history["train"][key].append(float(val))
+
+            # Check if model is new best and if so save it
+            if last_best_val_acc is None or (summary["accuracy"] > last_best_val_acc):
+                last_best_val_acc = summary["accuracy"]
+                if jax.process_index() == 0 and save_best:
+                    checkpoints.save_checkpoint(model_dir+"_best", jax_utils.unreplicate(t_state),
+                                                step)
 
             # Reset metric accumulation for next evaluation cycle.
             metrics_all = []
