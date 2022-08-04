@@ -83,7 +83,13 @@ def main(argv):
     available_devices = config.get("available_devices")
     model_folder = config["model_folder"]
     test_only = config["test_only"]
+
     output_db_path = config.get("output_db_path", None)
+    unique_output_db = config.get("unique_output_db", False)
+    assert (output_db_path is None) or (not unique_output_db)
+
+    if unique_output_db:
+        output_db_path = f"{run_name}_output_db.json"
 
     model_dir = os.path.join(model_folder, run_name)
 
@@ -109,6 +115,10 @@ def main(argv):
         'classifier': True,
     })
     logging.info("======= Final Model Kwargs =======\n" + pformat(model_kwargs))
+
+    if flags.FLAGS.dry_run:
+        logging.info("Dry run finished...")
+        return
 
     rng = random.PRNGKey(random_seed)
     rng = jax.random.fold_in(rng, jax.process_index())
@@ -138,10 +148,6 @@ def main(argv):
     p_eval_step = jax.pmap(partial(train_utils.eval_step, num_classes=num_classes,
                                    get_logits_and_targets_fn=logi_targ_fn),
                            axis_name='batch', devices=gpu_devices)
-
-    if flags.FLAGS.dry_run:
-        logging.info("Dry run finished...")
-        return
 
     if test_only:
         with tf.io.gfile.GFile(os.path.join(model_dir, 'results.json'), 'w') as f:
