@@ -1,9 +1,9 @@
 # Base config for text classification
 
 eval_frequency: 200
-num_train_steps: 20001
+num_train_steps: 30001
 num_eval_steps: -1
-checkpoint_freq: 4000
+checkpoint_freq: 6000
 
 model_kwargs:
   emb_dim: 512
