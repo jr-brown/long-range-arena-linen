@@ -2,18 +2,14 @@ from absl import app, logging, flags
 from pprint import pformat
 from functools import partial
 
-import json
 import os
 from datetime import datetime
 
 import jax
 from jax import random
-from jax.tree_util import tree_map
 
 from flax import jax_utils
 from flax.training import checkpoints
-
-import tensorflow.compat.v2 as tf
 
 from lra_benchmarks.utils import train_utils
 from lra_benchmarks.utils.device_utils import get_devices
@@ -56,9 +52,6 @@ def main(argv):
     if flags.FLAGS.log_dir:
         logging.get_absl_handler().use_absl_log_file(run_name, flags.FLAGS.log_dir)
 
-    tf.get_logger().setLevel('ERROR')
-    tf.enable_v2_behavior()
-
     logging.info("========== Config Paths ==========\n" + pformat(flags.FLAGS.config_paths))
     logging.info("========== Config Dict ===========\n" + pformat(config))
 
@@ -82,7 +75,8 @@ def main(argv):
     save_best = config["save_best"]
     available_devices = config.get("available_devices")
     model_folder = config["model_folder"]
-    test_only = config["test_only"]
+    do_train = config.get("train", True)
+    do_test = config.get("test", False)
 
     output_db_path = config.get("output_db_path", None)
     unique_output_db = config.get("unique_output_db", False)
@@ -132,7 +126,7 @@ def main(argv):
                                     tx)
 
     start_step = 0
-    if restore_checkpoints or test_only:
+    if restore_checkpoints or do_test:
         logging.info(f"Attempting to restore model from checkpoint at {model_dir}")
         # Restore unreplicated optimizer + model state from last checkpoint.
         t_state = checkpoints.restore_checkpoint(model_dir, t_state)
@@ -149,42 +143,44 @@ def main(argv):
                                    get_logits_and_targets_fn=logi_targ_fn),
                            axis_name='batch', devices=gpu_devices)
 
-    if test_only:
-        with tf.io.gfile.GFile(os.path.join(model_dir, 'results.json'), 'w') as f:
-            logging.info("Testing...")
-            test_summary = train_utils.run_eval(test_ds, t_state, p_eval_step, n_devices=n_devices)
-            json.dump(tree_map(lambda x: x.tolist(), test_summary), f)
-        return
-
     # Initialise history dict
     history = {
         "train": {k : [] for k in ['learning_rate', 'perplexity', 'loss', 'accuracy',
                                    'steps_per_second']},
-        "validation": {k: [] for k in ['perplexity', 'loss', 'accuracy']}
+        "validation": {k: [] for k in ['perplexity', 'loss', 'accuracy']},
+        "testing": {k: [] for k in ['perplexity', 'loss', 'accuracy']},
     }
 
-    metrics_all = []
-    logging.info('======= Starting training ========')
+    if do_train:
+        logging.info('======= Starting training ========')
+        t_state, _, history = train_utils.train(
+            start_step=start_step,
+            num_train_steps=num_train_steps,
+            num_eval_steps=num_eval_steps,
+            train_ds=train_ds,
+            eval_ds=eval_ds,
+            n_devices=n_devices,
+            p_train_step=p_train_step,
+            p_eval_step=p_eval_step,
+            t_state=t_state,
+            dropout_rngs=dropout_rngs,
+            history=history,
+            checkpoint_freq=checkpoint_freq,
+            save_checkpoints=save_checkpoints,
+            model_dir=model_dir,
+            eval_freq=eval_freq,
+            save_best=save_best,
+        )
 
-    t_state, _, metrics_all, history = train_utils.train(
-        start_step=start_step,
-        num_train_steps=num_train_steps,
-        num_eval_steps=num_eval_steps,
-        train_ds=train_ds,
-        eval_ds=eval_ds,
-        n_devices=n_devices,
-        p_train_step=p_train_step,
-        p_eval_step=p_eval_step,
-        t_state=t_state,
-        dropout_rngs=dropout_rngs,
-        metrics_all=metrics_all,
-        history=history,
-        checkpoint_freq=checkpoint_freq,
-        save_checkpoints=save_checkpoints,
-        model_dir=model_dir,
-        eval_freq=eval_freq,
-        save_best=save_best,
-    )
+    if do_test:
+        logging.info('============ Testing =============')
+        history = train_utils.test(
+            test_ds=test_ds,
+            n_devices=n_devices,
+            p_eval_step=p_eval_step,
+            t_state=t_state,
+            history=history,
+        )
 
     if output_db_path is not None:
         write_to_output_db(output_db_path=output_db_path, run_name=run_name, model_dir=model_dir,

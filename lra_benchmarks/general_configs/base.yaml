@@ -24,8 +24,6 @@ optim_kwargs:
 
 # output_db_path: "output_db.json"
 unique_output_db: True
-test_only: False
-test_on_eval: False
 model_folder: "trained_models"
 
 trial: 0  # dummy for repeated runs.

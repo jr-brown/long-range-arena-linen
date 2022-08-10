@@ -319,9 +319,10 @@ def run_eval(eval_ds, t_state, p_eval_step, n_devices=None, num_eval_steps=-1):
 
 
 def train(*, start_step, num_train_steps, num_eval_steps, train_ds, eval_ds, n_devices,
-          p_train_step, p_eval_step, t_state, dropout_rngs, metrics_all, history, checkpoint_freq,
+          p_train_step, p_eval_step, t_state, dropout_rngs, history, checkpoint_freq,
           save_checkpoints, model_dir, eval_freq, save_best):
 
+    metrics_all = []
     train_iter = iter(train_ds)
     tick = time.time()
 
@@ -383,21 +384,14 @@ loss: {eval_summary['loss']:4f}, acc: {eval_summary['accuracy']:4f}")
                     checkpoints.save_checkpoint(model_dir+"_best", jax_utils.unreplicate(t_state),
                                                 step)
 
-            """
-            if test_on_eval:
-                # Test eval
-                # Eval Metrics
-                logging.info('Testing...')
-                test_summary = train_utils.run_eval(test_ds, t_state, p_eval_step,
-                                                    n_devices=n_devices,
-                                        num_eval_steps=num_eval_steps)
-                logging.info('test in step: %d, loss: %.4f, acc: %.4f', step,
-                                          test_summary['loss'], test_summary['accuracy'])
-                if jax.process_index() == 0:
-                    for key, val in test_summary.items():
-                        summary_writer.scalar(f'test_{key}', val, step)
-                    summary_writer.flush()
-                    """
+    return t_state, dropout_rngs, history
 
-    return t_state, dropout_rngs, metrics_all, history
+
+def test(*, test_ds, n_devices, p_eval_step, t_state, history):
+    t_summary = run_eval(test_ds, t_state, p_eval_step, n_devices=n_devices)
+    logging.info(f"Test results:, loss: {t_summary['loss']:4f}, acc: {t_summary['accuracy']:4f}")
+    if jax.process_index() == 0:
+        for key, val in t_summary.items():
+            history["testing"][key].append(float(val))
+    return history
 

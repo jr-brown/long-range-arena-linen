@@ -1,21 +1,3 @@
-# Test configuration
-num_eval_steps: 2
-eval_frequency: 2
-num_train_steps: 3
-
-model_kwargs:
-  emb_dim: 32
-  num_heads: 2
-  num_layers: 3
-  qkv_dim: 32
-  mlp_dim: 64
-  max_len: 500
-
-data_kwargs:
-  batch_size: 4
-
-save_checkpoints: False
-restore_checkpoints: False
-output_db_path: null
-run_name_suffix: "test"
+do_train: false
+do_test: true
 
