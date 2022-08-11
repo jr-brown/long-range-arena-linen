@@ -45,7 +45,7 @@ def main(argv):
 
     if run_name is None:
         if run_name_suffix is not None:
-            run_name = f"{task_type}_{model_type}_{get_time_stamp()}_{run_name_suffix}"
+            run_name = f"{task_type}_{model_type}_{run_name_suffix}_{get_time_stamp()}"
         else:
             run_name = f"{task_type}_{model_type}_{get_time_stamp()}"
 
