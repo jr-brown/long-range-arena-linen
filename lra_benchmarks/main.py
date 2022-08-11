@@ -13,7 +13,7 @@ from flax.training import checkpoints
 
 from lra_benchmarks.utils import train_utils
 from lra_benchmarks.utils.device_utils import get_devices
-from lra_benchmarks.utils.config_utils import load_configs
+from lra_benchmarks.utils.config_utils import load_many_configs_into_one
 from lra_benchmarks.utils.misc_utils import write_to_output_db
 from lra_benchmarks.utils.pipeline_utils import get_datasets_and_encoder, get_task_fns_and_shape
 
@@ -37,7 +37,7 @@ def main(argv):
         logging.info("Executing dry run...")
 
     # Need to get this first to know log file name
-    config = load_configs(flags.FLAGS.config_paths)
+    config = load_many_configs_into_one(flags.FLAGS.config_paths)
     model_type = config["model_type"]
     task_type = config["task_type"]
     run_name_suffix = config.get("run_name_suffix")
