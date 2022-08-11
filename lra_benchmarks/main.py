@@ -75,8 +75,8 @@ def main(argv):
     save_best = config["save_best"]
     available_devices = config.get("available_devices")
     model_folder = config["model_folder"]
-    do_train = config.get("train", True)
-    do_test = config.get("test", False)
+    do_train = config["train"]
+    do_test = config["test"]
 
     output_db_path = config.get("output_db_path", None)
     unique_output_db = config.get("unique_output_db", False)
