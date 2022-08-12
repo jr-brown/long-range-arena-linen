@@ -54,6 +54,7 @@ def main(argv):
 
     logging.info("========== Config Paths ==========\n" + pformat(flags.FLAGS.config_paths))
     logging.info("========== Config Dict ===========\n" + pformat(config))
+    logging.info(f"Run name:\n{run_name}")
 
     model_kwargs = config["model_kwargs"]
     num_classes = model_kwargs["num_classes"]
