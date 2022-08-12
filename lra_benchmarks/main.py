@@ -77,6 +77,7 @@ def main(argv):
     model_folder = config["model_folder"]
     do_train = config["train"]
     do_test = config["test"]
+    test_with_best = config["test_with_best"]
 
     output_db_path = config.get("output_db_path", None)
     unique_output_db = config.get("unique_output_db", False)
@@ -174,6 +175,11 @@ def main(argv):
 
     if do_test:
         logging.info('============ Testing =============')
+
+        if test_with_best:
+            logging.info("Loading best model for test")
+            t_state = checkpoints.restore_checkpoint(model_dir+"_best", t_state)
+
         history = train_utils.test(
             test_ds=test_ds,
             n_devices=n_devices,
