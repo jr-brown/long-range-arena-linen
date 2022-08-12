@@ -78,7 +78,7 @@ def recursive_dict_update(base: dict, target: dict, assert_type_match=True,
     return new
 
 
-def write_to_output_db(output_db_path, run_name, model_dir, config, history):
+def write_to_output_db(output_db_path, run_name, model_dir, config, history, **kwargs):
     logging.info("Saving metrics and config data...")
 
     try:
@@ -102,16 +102,13 @@ def write_to_output_db(output_db_path, run_name, model_dir, config, history):
 
         configs.append(config)
 
-        output_db[run_name] = {
-            "model_dir": model_dir,
-            "config": configs,
-            "history": new_history}
+        output_entry = {"model_dir": model_dir, "config": configs, "history": new_history}
 
     else:
-        output_db[run_name] = {
-            "model_dir": model_dir,
-            "config": config,
-            "history": history}
+        output_entry = {"model_dir": model_dir, "config": config, "history": history}
+
+    output_entry.update(kwargs)
+    output_db[run_name] = output_entry
 
     # Try to save the history
     json_exception = None
