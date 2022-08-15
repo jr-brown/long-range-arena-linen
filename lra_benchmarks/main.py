@@ -180,6 +180,7 @@ def main(argv):
         if test_with_best:
             logging.info("Loading best model for test")
             t_state = checkpoints.restore_checkpoint(model_dir+"_best", t_state)
+            t_state = jax_utils.replicate(t_state, devices=gpu_devices)
 
         history = train_utils.test(
             test_ds=test_ds,
