@@ -339,7 +339,8 @@ def train(*, start_step, num_train_steps, num_eval_steps, train_ds, eval_ds, n_d
                 step == num_train_steps - 1):
             if jax.process_index() == 0 and save_checkpoints:
                 # Save unreplicated optimizer + model state.
-                checkpoints.save_checkpoint(model_dir, jax_utils.unreplicate(t_state), step)
+                checkpoints.save_checkpoint(model_dir, jax_utils.unreplicate(t_state), step,
+                                            overwrite=True)
 
         # Periodic metric handling.
         if step % eval_freq == 0 and step > 0:
@@ -382,7 +383,7 @@ loss: {eval_summary['loss']:4f}, acc: {eval_summary['accuracy']:4f}")
                 last_best_val_acc = eval_summary["accuracy"]
                 if jax.process_index() == 0 and save_best:
                     checkpoints.save_checkpoint(model_dir+"_best", jax_utils.unreplicate(t_state),
-                                                step)
+                                                step, overwrite=True)
 
     return t_state, dropout_rngs, history
 
