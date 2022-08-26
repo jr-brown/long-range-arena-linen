@@ -268,7 +268,7 @@ class ReformerAttention(nn.Module):
         inputs_q, inputs_kv, padding_mask = pad_inputs(orig_len, self.chunks_total_len, inputs_q,
                                                        inputs_kv, padding_mask)
 
-        qkv_features = inputs_q.shape[-1]
+        qkv_features = self.qkv_features or inputs_q.shape[-1]
         qlength = inputs_q.shape[1]
         batch_size = inputs_q.shape[0]
 
