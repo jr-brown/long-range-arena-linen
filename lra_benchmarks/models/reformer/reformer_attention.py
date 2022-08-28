@@ -16,6 +16,7 @@ from functools import partial
 from typing import Any
 from math import ceil
 from random import randint
+from absl import logging
 
 from flax import linen as nn
 import jax
@@ -268,7 +269,10 @@ class ReformerAttention(nn.Module):
         inputs_q, inputs_kv, padding_mask = pad_inputs(orig_len, self.chunks_total_len, inputs_q,
                                                        inputs_kv, padding_mask)
 
-        qkv_features = self.qkv_features or inputs_q.shape[-1]
+        if self.qkv_features is not None and self.qkv_features != inputs_q.shape[-1]:
+            logging.warn("Ignoring specified qkv features in reformer attention")
+
+        qkv_features = inputs_q.shape[-1]
         qlength = inputs_q.shape[1]
         batch_size = inputs_q.shape[0]
 
