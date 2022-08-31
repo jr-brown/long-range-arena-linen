@@ -1,10 +1,61 @@
 from typing import Any, Callable
+from absl import logging
+from pprint import pformat
+from functools import partial
 
-import flax.linen as nn
+import json
+
 import jax.numpy as jnp
 import jax.nn as jnn
 
-from lra_benchmarks.utils.array_utils import make_attention_mask
+import flax.linen as nn
+from flax.linen.dtypes import promote_dtype
+
+from lra_benchmarks.utils.array_utils import make_attention_mask, convert_array_to_list
+
+
+def dot_product_attention_with_weight_logging(
+    query, key, value, bias=None, mask=None, broadcast_dropout=True, dropout_rng=None,
+    dropout_rate=0, deterministic=False, dtype=None, precision=None,
+    output_db_path=None,
+):
+
+    """
+    Copy of flax.linen.attention.dot_product_attention but logs attention weights
+
+    Don't use in a parallel computation since that will just print tracers
+    """
+
+    query, key, value = promote_dtype(query, key, value, dtype=dtype)
+    dtype = query.dtype
+    assert key.ndim == query.ndim == value.ndim, 'q, k, v must have same rank.'
+    assert query.shape[:-3] == key.shape[:-3] == value.shape[:-3], (
+            'q, k, v batch dims must match.')
+    assert query.shape[-2] == key.shape[-2] == value.shape[-2], (
+            'q, k, v num_heads must match.')
+    assert key.shape[-3] == value.shape[-3], 'k, v lengths must match.'
+
+    # compute attention weights
+    attn_weights = nn.attention.dot_product_attention_weights(
+            query, key, bias, mask, broadcast_dropout, dropout_rng, dropout_rate,
+            deterministic, dtype, precision)
+
+    logging.info("Attention weights being saved, shape:\n" + pformat(attn_weights.shape))
+
+    with open(output_db_path) as f:
+        output_db = json.load(f)
+
+    # Dims will be [batch, num_heads, q_length, kv_length]
+    # Therefore attn_weights[0][0][x][y] is how important token x is to understanding token y in batch 0 and head 0
+    output_db["attn_weights"] = convert_array_to_list(attn_weights)
+
+    with open(output_db_path, 'w', encoding="utf-8") as f:
+        json.dump(output_db, f, ensure_ascii=False, indent=4)
+
+
+    # return weighted sum over values for each query position
+    return jnp.einsum('...hqk,...khd->...qhd', attn_weights, value,
+                                        precision=precision)
 
 
 class MaskedSelfAttention(nn.Module):
@@ -24,7 +75,7 @@ class MaskedSelfAttention(nn.Module):
 
     @nn.compact
     def __call__(self, x, *, segmentation=None, causal_mask: bool=False, padding_mask=None,
-                 deterministic: bool=False):
+                 deterministic: bool=False, log_attention_weights=False, log_output_db_path=None):
 
         _, mask = make_attention_mask(
             seq_shape=x.shape[:-2],
@@ -35,6 +86,12 @@ class MaskedSelfAttention(nn.Module):
             use_attention_bias=False
         )
 
+        if log_attention_weights and self.attention_fn == nn.dot_product_attention:
+            attention_fn = partial(dot_product_attention_with_weight_logging,
+                                   output_db_path=log_output_db_path)
+        else:
+            attention_fn = self.attention_fn
+
         x = nn.SelfAttention(
                 num_heads=self.num_heads,
                 dtype=self.dtype,
@@ -44,7 +101,7 @@ class MaskedSelfAttention(nn.Module):
                 use_bias=False,
                 broadcast_dropout=False,
                 dropout_rate=self.dropout_rate,
-                attention_fn=self.attention_fn,
+                attention_fn=attention_fn,
         )(x, deterministic=deterministic, mask=mask)
 
         return x

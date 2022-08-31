@@ -111,3 +111,10 @@ def make_attention_mask(*, seq_shape=None, dtype=None, causal_mask=False, paddin
 
     return mask_components, attention_mask
 
+
+def convert_array_to_list(x, _type=float):
+    if isinstance(x, jnp.DeviceArray) and len(x.shape) >= 1:
+        return [convert_array_to_list(xi) for xi in x]
+    else:
+        return _type(x)
+

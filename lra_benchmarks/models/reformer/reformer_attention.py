@@ -270,7 +270,7 @@ class ReformerAttention(nn.Module):
                                                        inputs_kv, padding_mask)
 
         if self.qkv_features is not None and self.qkv_features != inputs_q.shape[-1]:
-            logging.warn("Ignoring specified qkv features in reformer attention")
+            logging.log_every_n(logging.WARN, "Ignoring specified qkv features in reformer attention", 1)
 
         qkv_features = inputs_q.shape[-1]
         qlength = inputs_q.shape[1]

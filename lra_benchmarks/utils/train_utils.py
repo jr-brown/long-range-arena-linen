@@ -236,6 +236,19 @@ def compute_metrics(logits, labels, weights, *, num_classes):
     return metrics
 
 
+def compute_metrics_no_psum(logits, labels, weights, *, num_classes):
+    """Compute summary metrics."""
+    loss, weight_sum = compute_weighted_cross_entropy(
+            logits, labels, num_classes=num_classes, weights=None)
+    acc, _ = compute_weighted_accuracy(logits, labels, weights)
+    metrics = {
+            'loss': loss,
+            'accuracy': acc,
+            'denominator': weight_sum,
+    }
+    return metrics
+
+
 def stnd_get_loss_fn_and_targets(t_state, batch, dropout_rng, *, num_classes, model_kwargs=None):
     if model_kwargs is None:
         model_kwargs = {}
