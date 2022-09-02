@@ -138,7 +138,8 @@ def get_tc_datasets(n_devices,
     if tokenizer == 'char':
         logging.info('Using char/byte level vocab')
         encoder = tfds.deprecated.text.ByteTextEncoder()
-    else:
+    elif tokenizer is None or tokenizer == 'token':
+        logging.info('Using token level vocab')
         if fixed_vocab is None:
             tf.logging.info('Building vocab')
             # build vocab
@@ -157,6 +158,8 @@ def get_tc_datasets(n_devices,
         else:
             vocab_set = list(set(fixed_vocab))
         encoder = tfds.deprecated.text.TokenTextEncoder(vocab_set)
+    else:
+        encoder = tokenizer
 
     def tf_encode(x):
         result = tf.py_function(lambda s: tf.constant(encoder.encode(s.numpy())), [
