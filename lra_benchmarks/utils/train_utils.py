@@ -222,30 +222,18 @@ def compute_weighted_accuracy(logits, targets, weights=None):
     return loss.sum(), normalizing_factor
 
 
-def compute_metrics(logits, labels, weights, *, num_classes):
+def compute_metrics(logits, labels, weights, *, num_classes, psum=True):
     """Compute summary metrics."""
     loss, weight_sum = compute_weighted_cross_entropy(
             logits, labels, num_classes=num_classes, weights=None)
     acc, _ = compute_weighted_accuracy(logits, labels, weights)
     metrics = {
-            'loss': loss,
-            'accuracy': acc,
-            'denominator': weight_sum,
+        'loss': loss,
+        'accuracy': acc,
+        'denominator': weight_sum,
     }
-    metrics = jax.lax.psum(metrics, 'batch')
-    return metrics
-
-
-def compute_metrics_no_psum(logits, labels, weights, *, num_classes):
-    """Compute summary metrics."""
-    loss, weight_sum = compute_weighted_cross_entropy(
-            logits, labels, num_classes=num_classes, weights=None)
-    acc, _ = compute_weighted_accuracy(logits, labels, weights)
-    metrics = {
-            'loss': loss,
-            'accuracy': acc,
-            'denominator': weight_sum,
-    }
+    if psum:
+        metrics = jax.lax.psum(metrics, 'batch')
     return metrics
 
 
