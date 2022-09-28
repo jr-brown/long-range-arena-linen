@@ -11,7 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+#
+# NOTICE
+# Modified by Jason Brown 2022
+
 """Big Bird attention mechanism. See https://arxiv.org/abs/2007.14062."""
+
 from functools import partial
 from typing import Any
 from absl import logging

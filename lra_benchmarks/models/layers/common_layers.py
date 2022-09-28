@@ -12,7 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # Lint as: python3
+# 
+# NOTICE
+# Modified by Jason Brown 2022
+
 """Common layers used in models."""
+
 from typing import Any
 
 import flax.linen as nn
@@ -227,7 +232,4 @@ def classifier_head_dual(encoded1, encoded2, num_classes, mlp_dim, pooling_mode=
     encoded = nn.relu(encoded)
     encoded = nn.Dense(num_classes, name='logits')(encoded)
     return encoded
-
-def shift_right(x):
-    raise NotImplementedError
 

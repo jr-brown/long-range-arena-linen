@@ -11,6 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+#
+# NOTICE
+# Modified by Jason Brown 2022
+
 """Implements Longformer's attention (https://arxiv.org/abs/2004.05150).
 
 Like the current (8/28/20) Huggingface version, we do not support

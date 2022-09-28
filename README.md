@@ -3,11 +3,7 @@
 This is a fork of google's long-range arena that aims to update it to use the latest version of flax, which now uses linen instead of nn (amongst other things). I am primarily using https://flax.readthedocs.io/en/latest/howtos/linen_upgrade_guide.html#defining-simple-modules as a guide.
 
 
-## Status
-
-All attention mechanisms are implemented and train well at the listed taks on GPU. There are some discrepancies in which models are best.
-
-### Implemented Tasks
+## Implemented Tasks
 * Text classification
 * ListOps
 * Matching
@@ -23,22 +19,10 @@ All attention mechanisms are implemented and train well at the listed taks on GP
 * conda activate env_name
 * python3 -m pip install -r pip_extra_reqs.txt
 
-### Testing
-* Run test_setup.sh, it should do 20 trainig steps with some eval in the middle and then stop
-* Ignore any GPU related errors from tensorflow, only jax needs to use the gpu
 
-
-## Running
-* Either use one of the scripts or
-* Set this flag before invoking python: "XLA_FLAGS=--xla_gpu_force_compilation_parallelism=1 python ..."
-
-
-## Changes to original codebase functionality
-* Removed cache that was used for 'efficient autoregressive decoding' due to the mechanisms used not being present / been moved in latest flax version, should be able to re-implement this behaviour with the decode options if needed
-
-
-## Known issues
-* Despite the config setting which GPUs are available for use working for the bulk of the calculations, it seems to use ~140MiB on the other GPUs as well
+## Notes
+* Set this environment variable before running with GPU: XLA_FLAGS=--xla_gpu_force_compilation_parallelism=1
+* Ignore tensorflow gpu related errors
 
 
 # Original README

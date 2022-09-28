@@ -11,6 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+#
+# NOTICE
+# Modified by Jason Brown 2022
+
 """This script contains utility functions for data preprocessing and output post-processing."""
 
 from collections import defaultdict  ## pylint: disable=g-importing-member

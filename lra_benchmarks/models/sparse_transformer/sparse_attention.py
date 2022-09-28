@@ -11,6 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+#
+# NOTICE
+# Modified by Jason Brown 2022
+
 """Implements Sparse Transformer's attention pattern.
 
 (https://arxiv.org/pdf/1904.10509.pdf).
